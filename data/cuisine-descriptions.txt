@@ -1,0 +1,182 @@
+From: Facundo BELLOSI <F.Bellosi@sms.ed.ac.uk>
+Subject: Re: Directory
+Date: 1 September 2012 11:53:31 BST
+To: Charles Sutton <csutton@inf.ed.ac.uk>
+
+Hi Charles,
+
+I'm glad you found everything. Cuisines are identified with the index in the following list (alphabetical order):
+
+Chinese
+English
+French
+German
+Greek
+Indian
+Italian
+Japanese
+Mexican
+Moroccan
+Spanish
+Thai
+
+This was hardcoded in the Matlab scripts, but I created a csv file for you named "Cuisines.csv" that you can find in the Data folder.
+
+Best regards,
+Facundo
+
+Quoting Charles Sutton <csutton@inf.ed.ac.uk> on Thu, 30 Aug 2012 12:29:35 +0100:
+
+Hi Facundo,
+
+This looks great, thanks. The mapping from cuisine names to numeric  IDs, do you have this somewhere?
+
+Charles
+
+--
+Charles Sutton * csutton@inf.ed.ac.uk * http://homepages.inf.ed.ac.uk/csutton
+Lecturer * School of Informatics * University of Edinburgh
+
+On 30 Aug 2012, at 11:58, Facundo BELLOSI <F.Bellosi@sms.ed.ac.uk> wrote:
+
+Thanks for the good wishes.
+
+I copied the DATA folder from my PROJECT folder into the path you  provided me. Please let me know if you have any problems or require  anything else.
+
+Best regards,
+Facundo
+
+Quoting Charles Sutton <csutton@inf.ed.ac.uk> on Fri, 24 Aug 2012  11:59:40 +0100:
+
+OK I see what I did now. I've changed some permissions, so can you   try one more time when you get a chance?
+
+I didn't realise that it would all fit on Dropbox. That works too.
+
+Good luck with the move, and in all your future work.
+
+Charles
+
+
+On 24 Aug 2012, at 11:27, Facundo BELLOSI <F.Bellosi@sms.ed.ac.uk> wrote:
+
+It says permission denied to /afs/inf.ed.ac.uk/group/ML/csutton/
+
+Otherwise I can setup a folder in Dropbox or Google drive. Just  let  me know :)
+
+For the moment I must also say goodbye. I'm leaving town today,   that is why I hadn't been able to communicate as fluently as I  used  to. It was an honour working with you and I really thank  you for  your time and guidance.
+
+All the best,
+Facundo
+
+Quoting Charles Sutton <csutton@inf.ed.ac.uk> on Thu, 23 Aug 2012   12:20:54 +0100:
+
+That's weird. I can never get AFS permissions right. If you do
+
+ls -d /afs/inf.ed.ac.uk/group/ML/csutton/msc/2012/bellosi/
+ls -d /afs/inf.ed.ac.uk/group/ML/csutton/msc/2012/
+ls -d /afs/inf.ed.ac.uk/group/ML/csutton/msc/
+ls -d /afs/inf.ed.ac.uk/group/ML/csutton/
+ls -d /afs/inf.ed.ac.uk/group/ML/
+
+can you give me the exact output of each one?
+
+On 23 Aug 2012, at 11:38, Facundo BELLOSI <F.Bellosi@sms.ed.ac.uk> wrote:
+
+Hi Charles, no worries. I still don't seem to have access to  some   part of the path, though.
+
+Quoting Charles Sutton <csutton@inf.ed.ac.uk> on Wed, 22 Aug  2012   14:42:58 +0100:
+
+Oh whoops I sent you the wrong link. Could you try this  directory instead
+
+	/afs/inf.ed.ac.uk/group/ML/csutton/msc/2012/bellosi/
+
+Sorry,
+Charles
+
+On 19 Aug 2012, at 23:05, Facundo BELLOSI  <F.Bellosi@sms.ed.ac.uk> wrote:
+
+Hi Charles,
+
+I already left the source code and dataset in my project    directory,  but I couldn't access the location you sent me.  Let   me know if you  want me to try again.
+
+Best regards,
+Facundo
+
+Quoting Charles Sutton <csutton@inf.ed.ac.uk> on Wed, 15 Aug   2012   13:53:04 +0100:
+
+As I mentioned, here is a large directory where you should  be   able   to put extra stuff like data sets, etc., so that  they  can  be used  by  future projects
+
+	/Users/csutton/afs/ML/msc/2012/bellosi
+
+Also do put your code in your project folder as we discussed.
+
+Charles
+--
+The University of Edinburgh is a charitable body, registered in
+Scotland, with registration number SC005336.
+
+
+
+
+
+
+--
+The University of Edinburgh is a charitable body, registered in
+Scotland, with registration number SC005336.
+
+
+
+
+
+--
+The University of Edinburgh is a charitable body, registered in
+Scotland, with registration number SC005336.
+
+
+
+
+
+
+--
+The University of Edinburgh is a charitable body, registered in
+Scotland, with registration number SC005336.
+
+
+
+
+
+
+
+--
+The University of Edinburgh is a charitable body, registered in
+Scotland, with registration number SC005336.
+
+
+
+
+
+--
+The University of Edinburgh is a charitable body, registered in
+Scotland, with registration number SC005336.
+
+
+
+
+
+
+--
+The University of Edinburgh is a charitable body, registered in
+Scotland, with registration number SC005336.
+
+
+
+
+
+
+
+-- 
+The University of Edinburgh is a charitable body, registered in
+Scotland, with registration number SC005336.
+
+
+
