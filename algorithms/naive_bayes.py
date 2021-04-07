@@ -4,7 +4,7 @@ from sklearn.metrics import confusion_matrix
 from data.split_train_test import *
 
 # Load Data
-X_train, X_val, X_test, y_train, y_val, y_test = split_data('hold-out')
+X_train, X_val, X_test, y_train, y_val, y_test = get_data('hold-out')
 class_labels = get_labels()
 
 print(class_labels)
