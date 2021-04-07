@@ -104,7 +104,6 @@ def evaluate_model(xTrain, yTrain, model):
     print("Average f1 score:", avg_f1score)
     return avg_accuracy, avg_precision, avg_recall, avg_f1score
 
-
 if __name__ == '__main__':
     f = Figlet(font='slant')
     print(f.renderText('DME MiniProject'))
