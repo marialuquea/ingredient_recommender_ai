@@ -4,12 +4,64 @@ from sklearn.metrics import roc_curve, auc, precision_score, recall_score, f1_sc
 from sklearn.model_selection import KFold
 from sklearn.multiclass import OneVsRestClassifier
 from sklearn.preprocessing import label_binarize
+from surprise import KNNWithZScore, KNNWithMeans, KNNBasic, KNNBaseline, BaselineOnly
+from surprise.model_selection import cross_validate
 
 from data.split_train_test import *
+from data.surprise_preprocess import *
 from algorithms.RandomForest import *
 from algorithms.naive_bayes import *
 from pyfiglet import Figlet
 from scipy import interp
+
+def memory_based(X, model='baseline', similarity='cosine', method='als'):
+    X_train = surprise_transform(X)
+    
+    if model == 'baseline':
+        if method == 'als':
+            # ALS
+            bsl_options = {'method': 'als',
+               'n_epochs': 5,
+               'reg_u': 12,
+               'reg_i': 5
+               }
+            algo = BaselineOnly(bsl_options=bsl_options)
+        elif method == 'sgd':
+            # SGD
+            bsl_options = {'method': 'sgd',
+                        'learning_rate': .00005,
+                        }
+            algo = BaselineOnly(bsl_options=bsl_options)
+    elif model == 'knn_basic': 
+        sim_options = {'name': similarity, 
+                    'user_based': False  
+                    }
+        algo = KNNBasic(sim_options=sim_options)
+
+    elif model == 'knn_baseline':
+        sim_options = {'name': similarity,
+                    'user_based': False 
+                    }
+        algo = KNNBaseline(sim_options=sim_options)
+    
+    elif model == 'knn_with_means':
+        sim_options = {'name': similarity,
+               'user_based': False  
+               }
+        algo = KNNWithMeans(sim_options=sim_options)             
+    
+    elif model == 'knn_with_z_score':
+        sim_options = {'name': similarity,
+                    'user_based': False  
+                    }
+        algo = KNNWithZScore(sim_options=sim_options)
+    else:
+        print(f"Invalid model: {model}")
+
+    print(f"Running model {model}" + f" using similarity {similarity}" * (model != 'baseline'))
+
+    return cross_validate(algo, X_train, measures=['RMSE', 'MAE', 'MSE'], cv=3, verbose=True)
+        
 
 def random_forest(X_train, X_val, X_test, y_train, y_val, y_test, importances=False):
     rf = RandomForest(X_train, y_train, X_test, y_test)
@@ -113,3 +165,11 @@ if __name__ == '__main__':
 
     random_forest(X_train, X_val, X_test, y_train, y_val, y_test)
     naive_bayes(X_train, X_val, X_test, y_train, y_val, y_test)
+
+    X_train, X_test = split_data()
+
+    models = ['baseline', 'knn_basic', 'knn_baseline', 'knn_with_means', 'knn_with_z_score']
+    baseline_methods = ['als', 'sgd']
+    similarities = ['cosine', 'msd', 'pearson']
+    
+    results = memory_based(X_train, model='knn_with_z_score', similarity='pearson', method='sgd')
