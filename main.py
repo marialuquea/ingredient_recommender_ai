@@ -1,4 +1,5 @@
 from itertools import cycle
+import argparse
 
 from sklearn.metrics import roc_curve, auc, precision_score, recall_score, f1_score, confusion_matrix
 from sklearn.model_selection import KFold
@@ -13,6 +14,36 @@ from algorithms.RandomForest import *
 from algorithms.naive_bayes import *
 from pyfiglet import Figlet
 from scipy import interp
+
+def get_argparser():
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("--render", type=str, default='DME MiniProject',
+                        help="text to render")
+
+    parser.add_argument("--task", type=str, default='cuisine', 
+                        choices=['cuisine', 'recommendation'],
+                        help="task to perform")
+    
+    parser.add_argument("--cuisine_model", type=str, default='random_forest', 
+                        choices=['random_forest', 'naive_bayes', 'svm'],
+                        help="model to use on the cuisine task")
+
+    parser.add_argument("--recommendation_model", type=str, default='baseline', 
+                    choices=['baseline', 'knn_basic', 'knn_baseline', 'knn_with_means', 'knn_with_z_score'],
+                    help="model to use on the recommendation task")
+
+    parser.add_argument("--baseline_method", type=str, default='als', 
+                        choices=['als', 'sgd'],
+                        help="method used by the baseline model (recommendation task)")
+
+    parser.add_argument("--similarity", type=str, default='cosine', 
+                        choices=['cosine', 'msd', 'pearson'],
+                        help="similarity metric used by the KNN models (recommendation task)")
+
+    return parser
+
+
 
 def memory_based(X, model='baseline', similarity='cosine', method='als'):
     X_train = surprise_transform(X)
@@ -32,6 +63,9 @@ def memory_based(X, model='baseline', similarity='cosine', method='als'):
                         'learning_rate': .00005,
                         }
             algo = BaselineOnly(bsl_options=bsl_options)
+        else:
+            print(f"Invalid method {method}")
+            return {}
     elif model == 'knn_basic': 
         sim_options = {'name': similarity, 
                     'user_based': False  
@@ -57,6 +91,7 @@ def memory_based(X, model='baseline', similarity='cosine', method='als'):
         algo = KNNWithZScore(sim_options=sim_options)
     else:
         print(f"Invalid model: {model}")
+        return {}
 
     print(f"Running model {model}" + f" using similarity {similarity}" * (model != 'baseline'))
 
@@ -157,18 +192,24 @@ def evaluate_model(xTrain, yTrain, model):
     return avg_accuracy, avg_precision, avg_recall, avg_f1score
 
 if __name__ == '__main__':
-    f = Figlet(font='slant')
-    print(f.renderText('DME MiniProject'))
-
-    X_train, X_val, X_test, y_train, y_val, y_test = get_data()
-
-    random_forest(X_train, X_val, X_test, y_train, y_val, y_test)
-    naive_bayes(X_train, X_val, X_test, y_train, y_val, y_test)
-
-    X_train, X_test = split_data()
-
-    models = ['baseline', 'knn_basic', 'knn_baseline', 'knn_with_means', 'knn_with_z_score']
-    baseline_methods = ['als', 'sgd']
-    similarities = ['cosine', 'msd', 'pearson']
+    opts = get_argparser().parse_args()
     
-    results = memory_based(X_train, model='knn_with_z_score', similarity='pearson', method='sgd')
+    print(opts)
+    
+    f = Figlet(font='slant')
+    print(f.renderText(opts.render))
+
+    if opts.task == 'cuisine':
+        X_train, X_val, X_test, y_train, y_val, y_test = get_data()
+
+        if opts.cuisine_model == 'random_forest':
+            random_forest(X_train, X_val, X_test, y_train, y_val, y_test)
+        elif opts.cuisine_model == 'naive_bayes':
+            naive_bayes(X_train, X_val, X_test, y_train, y_val, y_test)
+        elif opts.cuisine_model == 'svm':
+            print("TODO: Implement SVM model")
+    
+    elif opts.task == 'recommendation':
+        X_train, X_test = split_data()
+        
+        results = memory_based(X_train, model=opts.recommendation_model, similarity=opts.similarity, method=opts.baseline_method)
