@@ -3,10 +3,10 @@ from sklearn.metrics import accuracy_score
 from sklearn.model_selection import GridSearchCV
 
 class SVM:
-    def __init__(self, xTrain, yTrain, xTest, yTest):
+    def __init__(self, xTrain, yTrain, xTest, yTest, verbose=True):
         print("\n\nRunning Support Vector Machine classifier...")
 
-        svm = SVC(kernel='linear').fit(xTrain, yTrain)
+        svm = SVC(kernel='linear', verbose=verbose).fit(xTrain, yTrain)
         self.clf = svm
         self.predictions = svm.predict(xTest)
         self.accuracy = accuracy_score(yTest.values, self.predictions)
