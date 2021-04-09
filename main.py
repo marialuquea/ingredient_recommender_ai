@@ -1,21 +1,23 @@
 from itertools import cycle
-
 from sklearn.metrics import roc_curve, auc, precision_score, recall_score, f1_score, confusion_matrix
 from sklearn.model_selection import KFold
 from sklearn.multiclass import OneVsRestClassifier
 from sklearn.preprocessing import label_binarize
 from surprise import KNNWithZScore, KNNWithMeans, KNNBasic, KNNBaseline, BaselineOnly
 from surprise.model_selection import cross_validate
-
+import matplotlib.pyplot as plt
+import numpy as np
 from data.split_train_test import *
 from algorithms.RandomForest import *
 from algorithms.naive_bayes import *
+from algorithms.SVM import *
 from pyfiglet import Figlet
-from scipy import interp
+from numpy import interp
 
 
-def memory_based(X, model='baseline', similarity='cosine', method='als'):
+def memory_based(X, model='baseline', similarity='cosine', method='als', cv=2, measures=['RMSE'], verbose=True):
     X_train = surprise_transform(X)
+    sim_options = {'name': similarity, 'user_based': False}
 
     if model == 'baseline':
         if method == 'als':
@@ -26,25 +28,22 @@ def memory_based(X, model='baseline', similarity='cosine', method='als'):
             algo = BaselineOnly(bsl_options=bsl_options)
 
     elif model == 'knn_basic':
-        sim_options = {'name': similarity, 'user_based': False}
         algo = KNNBasic(sim_options=sim_options)
 
     elif model == 'knn_baseline':
-        sim_options = {'name': similarity, 'user_based': False}
         algo = KNNBaseline(sim_options=sim_options)
 
     elif model == 'knn_with_means':
-        sim_options = {'name': similarity, 'user_based': False}
         algo = KNNWithMeans(sim_options=sim_options)
 
     elif model == 'knn_with_z_score':
-        sim_options = {'name': similarity, 'user_based': False}
         algo = KNNWithZScore(sim_options=sim_options)
     else:
         raise Exception(f"Invalid model passed to function {model}")
-    print(f"Running model {model}" + f" using similarity {similarity}" * (model != 'baseline'))
 
-    return cross_validate(algo, X_train, measures=['RMSE', 'MAE', 'MSE'], cv=3, verbose=True)
+    print(f"Cross validating algorithm with {cv} folds")
+
+    return cross_validate(algo, X_train, measures=measures, cv=cv, verbose=verbose)
 
 
 def random_forest(X_train, X_val, X_test, y_train, y_val, y_test, importances=False):
@@ -52,12 +51,13 @@ def random_forest(X_train, X_val, X_test, y_train, y_val, y_test, importances=Fa
     if importances:
         rf.get_importances()
     plot_true_Vs_predicted(y_val, rf.predict(X_val))
-    print(f"Accuracy of predicted outcomes: {rf.accuracy}")
+    print(f"Accuracy of testing set: {rf.accuracy}")
     print("Evaluating Random Forest algorithm")
-    evaluate_model(X_train, y_train, rf)
+    evaluate_model(X_train, y_train, rf.clf)
     print("Plotting roc curves for RF model")
     plot_roc_curve(X_train, y_train, X_test, y_test, RandomForestClassifier())
     print(compute_confusion_matrix(y_val, rf.predict(X_val)))
+    # TODO: grid search
 
 
 def naive_bayes(X_train, X_val, X_test, y_train, y_val, y_test):
@@ -65,8 +65,21 @@ def naive_bayes(X_train, X_val, X_test, y_train, y_val, y_test):
     plot_true_Vs_predicted(y_val, nb.predict(X_val))
     print(f"Accuracy of predicted outcomes: {nb.accuracy}")
     print("Evaluating Naive Bayes algorithm")
-    evaluate_model(X_train, y_train, nb)
+    evaluate_model(X_train, y_train, nb.clf)
     print(compute_confusion_matrix(y_val, nb.predict(X_val)))
+    # TODO: grid search
+
+
+def svm(X_train, X_val, X_test, y_train, y_val, y_test):
+    svm = SVM(X_train, y_train, X_test, y_test)
+    plot_true_Vs_predicted(y_val, svm.predict(X_val))
+    print(f"Accuracy of testing set: {svm.accuracy}")
+    print("Evaluating SVM algorithm")
+    evaluate_model(X_train, y_train, svm.clf)
+    print("Plotting roc curves for SVM model")
+    plot_roc_curve(X_train, y_train, X_test, y_test, SVC())
+    print(compute_confusion_matrix(y_val, svm.predict(X_val)))
+    #TODO: grid search
 
 
 def compute_confusion_matrix(y_true, predictions):
@@ -147,19 +160,26 @@ def evaluate_model(xTrain, yTrain, model):
     print("Average f1 score:", avg_f1score)
     return avg_accuracy, avg_precision, avg_recall, avg_f1score
 
+
 if __name__ == '__main__':
     f = Figlet(font='slant')
     print(f.renderText('DME MiniProject'))
 
-    X_train, X_val, X_test, y_train, y_val, y_test = get_data()
+    # X_train, X_val, X_test, y_train, y_val, y_test = get_data()
+    # random_forest(X_train, X_val, X_test, y_train, y_val, y_test)
+    # naive_bayes(X_train, X_val, X_test, y_train, y_val, y_test)
+    # svm(X_train, X_val, X_test, y_train, y_val, y_test)
 
-    random_forest(X_train, X_val, X_test, y_train, y_val, y_test)
-    naive_bayes(X_train, X_val, X_test, y_train, y_val, y_test)
+    # ------ Collborative filtering ------
+    X_train, X_test = get_data(y_val=False)
 
-    # X_train, X_test = split_data(y_val=False)
-    #
-    # models = ['baseline', 'knn_basic', 'knn_baseline', 'knn_with_means', 'knn_with_z_score']
-    # baseline_methods = ['als', 'sgd']
-    # similarities = ['cosine', 'msd', 'pearson']
-    #
-    # results = memory_based(X_train, model='knn_with_z_score', similarity='pearson', method='sgd')
+    # ------ Memory based ------
+    models = ['baseline', 'knn_basic', 'knn_baseline', 'knn_with_means', 'knn_with_z_score']
+    baseline_methods = ['als', 'sgd']
+    similarities = ['cosine', 'msd', 'pearson']
+
+    algorithm = memory_based(X_train, model='knn_with_z_score', similarity='pearson', method='sgd')
+    print(f"algorithm: {algorithm}")
+
+    # ------ Model based ------
+    # TODO: model based

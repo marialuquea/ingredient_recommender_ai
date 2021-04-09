@@ -16,10 +16,10 @@ def get_data(y_val = True):
         X_train, X_test, _, _ = train_test_split(X, y, test_size=0.1, random_state=123)
         return X_train, X_test
 
+
 def get_labels():
     return pd.read_csv('data/recipes.csv').iloc[:, :-1].columns
 
-from surprise import Reader
 
 def surprise_transform(data):
     '''Converts a recipes data frame into a surprise dataset'''
