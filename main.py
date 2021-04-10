@@ -13,7 +13,7 @@ from algorithms.naive_bayes import *
 from algorithms.SVM import *
 from pyfiglet import Figlet
 from numpy import interp
-
+import joblib
 
 def memory_based(X, model='baseline', similarity='cosine', method='als', cv=2, measures=['RMSE'], verbose=True):
     X_train = surprise_transform(X)
@@ -45,67 +45,61 @@ def memory_based(X, model='baseline', similarity='cosine', method='als', cv=2, m
 
     return cross_validate(algo, X_train, measures=measures, cv=cv, verbose=verbose)
 
-
 def model_based(X, model='svd', cv=2, measures=['RMSE'], verbose=True):
     X_train = surprise_transform(X)
 
     if model == 'svd':
         algo = SVD()
-
     elif model == 'svdpp':
         algo = SVDpp()
-
     # throws zero division error if all quantities are zero related to a item_id or store_id
-    # elif model == 'nmf':
-    #     algo = NMF()
-
+    elif model == 'nmf':
+        algo = NMF()
     else:
         raise Exception(f"Invalid model passed to function {model}")
 
     print(f"Cross validating algorithm with {cv} folds")
-
     return cross_validate(algo, X_train, measures=measures, cv=cv, verbose=verbose)
-
 
 def random_forest(X_train, X_val, X_test, y_train, y_val, y_test, importances=False):
     rf = RandomForest(X_train, y_train, X_test, y_test)
     if importances:
         rf.get_importances()
     plot_true_Vs_predicted(y_val, rf.predict(X_val))
-    print(f"Accuracy of testing set: {rf.accuracy}")
     print("Evaluating Random Forest algorithm")
     evaluate_model(X_train, y_train, rf.clf)
     print("Plotting roc curves for RF model")
     plot_roc_curve(X_train, y_train, X_test, y_test, RandomForestClassifier())
-    print(compute_confusion_matrix(y_val, rf.predict(X_val)))
+    get_metrics(rf.clf, X_val, y_val)
     # TODO: grid search
-
+    return rf.clf
 
 def naive_bayes(X_train, X_val, X_test, y_train, y_val, y_test):
     nb = NaiveBayes(X_train, y_train, X_test, y_test)
     plot_true_Vs_predicted(y_val, nb.predict(X_val))
-    print(f"Accuracy of predicted outcomes: {nb.accuracy}")
     print("Evaluating Naive Bayes algorithm")
     evaluate_model(X_train, y_train, nb.clf)
-    print(compute_confusion_matrix(y_val, nb.predict(X_val)))
+    get_metrics(nb.clf, X_val, y_val)
     # TODO: grid search
-
+    return nb.clf
 
 def svm(X_train, X_val, X_test, y_train, y_val, y_test):
     svm = SVM(X_train, y_train, X_test, y_test)
     plot_true_Vs_predicted(y_val, svm.predict(X_val))
-    print(f"Accuracy of testing set: {svm.accuracy}")
     print("Evaluating SVM algorithm")
     evaluate_model(X_train, y_train, svm.clf)
     print("Plotting roc curves for SVM model")
     plot_roc_curve(X_train, y_train, X_test, y_test, SVC())
-    print(compute_confusion_matrix(y_val, svm.predict(X_val)))
+    get_metrics(svm.clf, X_val, y_val)
     #TODO: grid search
+    return svm.clf
 
+def get_metrics(model, X_val, y_val):
+    print(f"Accuracy of testing set: {accuracy_score(y_val.values, model.predict(X_val))}")
+    print(compute_confusion_matrix(y_val, model.predict(X_val)))
 
 def compute_confusion_matrix(y_true, predictions):
     return confusion_matrix(y_true, predictions, labels=np.unique(y_true))
-
 
 def plot_true_Vs_predicted(y_true, predictions):
     plt.scatter(y_true, predictions, c='#FF7AA6')
@@ -114,7 +108,6 @@ def plot_true_Vs_predicted(y_true, predictions):
     plt.title('Precision of predicted outcomes')
     plt.plot(np.unique(y_true), np.poly1d(np.polyfit(y_true, predictions, 1))(np.unique(y_true)))
     plt.show()
-
 
 def plot_roc_curve(X_train, y_train, X_test, y_test, model):
     y = label_binarize(y_train, classes=np.unique(y_train))
@@ -154,7 +147,6 @@ def plot_roc_curve(X_train, y_train, X_test, y_test, model):
     plt.legend(bbox_to_anchor=(1, 1), loc="upper left")
     plt.show()
 
-
 def evaluate_model(xTrain, yTrain, model):
     kfold = KFold(n_splits=3, shuffle=True)
     count, avg_roc_auc, avg_accuracy, avg_precision, avg_recall, avg_f1score = 0, 0, 0, 0, 0, 0
@@ -181,24 +173,75 @@ def evaluate_model(xTrain, yTrain, model):
     print("Average f1 score:", avg_f1score)
     return avg_accuracy, avg_precision, avg_recall, avg_f1score
 
+def ask():
+    print("Select an option:")
+    print("[1] - Train ML model with data to predict what type of cuisine a recipe belongs to.")
+    print("[2] - Use model based collaborative filtering to provide ingredient recommendation by developing a model of recipe ingredients")
+    print("[3] - Use memory based collaborative filtering to provide ingredient recommendation by the same process as 2.")
+    print("[4] - Exit program")
+
+def choose_ML_model():
+    print("Choose a model to work with.\n[1] - Random Forest\n[2] - Naive Bayes\n[3] - Support Vector Machine")
+    model_option = input("Choose a number: ")
+    option = input("Would you like to \n[1] - train a model\n[2] - load a pre-trained model\n(Make sure to create a folder called 'models' in this directory.)\nChoose a number: ")
+    if option == "1":
+        X_train, X_val, X_test, y_train, y_val, y_test = get_data()
+        if model_option == "1":
+            model = random_forest(X_train, X_val, X_test, y_train, y_val, y_test)
+            filename = "models/randomForest.sav"
+        elif model_option == "2":
+            model = naive_bayes(X_train, X_val, X_test, y_train, y_val, y_test)
+            filename = "models/naiveBayes.sav"
+        elif model_option == "3":
+            model = svm(X_train, X_val, X_test, y_train, y_val, y_test)
+            filename = "models/svm.sav"
+        else:
+            print("Invalid input, try again.")
+            return
+        joblib.dump(model, filename)
+        print(f"Model {model} saved correctly as {filename}!")
+    elif option == "2":
+        _, X_val, _, _, y_val, _ = get_data()
+        if model_option == "1":
+            model = joblib.load('models/randomForest.sav')
+        elif model_option == "2":
+            model = joblib.load('models/naiveBayes.sav')
+        elif model_option == "3":
+            model = joblib.load('models/svm.sav')
+        else:
+            print("Invalid input, try again.")
+            return
+        get_metrics(model, X_val, y_val)
+        #TODO: Allow user to input ingredient names and predict cuisine (?) Totally not needed but it would be cool lol
 
 if __name__ == '__main__':
     f = Figlet(font='slant')
     print(f.renderText('DME MiniProject'))
 
-    #X_train, X_val, X_test, y_train, y_val, y_test = get_data()
-    # random_forest(X_train, X_val, X_test, y_train, y_val, y_test)
-    # naive_bayes(X_train, X_val, X_test, y_train, y_val, y_test)
-    # svm(X_train, X_val, X_test, y_train, y_val, y_test)
+    finished = False
+    while finished == False:
+        ask()
+        option = input("Choose a number: ")
+        if option == "1":
+            choose_ML_model()
+        if option == "2":
+            print("Model based")
+        if option == "3":
+            print("Memory based")
+        if option == "4":
+            finished = True
+
+
 
     # ------ Collborative filtering ------
-    X_train, X_test = get_data(y_val=False)
+    # X_train, X_test = get_data(y_val=False)
+    # print(X_train.shape, X_test.shape)
 
     # ------ Memory based ------
-    models = ['baseline', 'knn_basic', 'knn_baseline', 'knn_with_means', 'knn_with_z_score']
-    baseline_methods = ['als', 'sgd']
-    similarities = ['cosine', 'msd', 'pearson']
-
-    #algorithm = memory_based(X_train, model='knn_with_z_score', similarity='pearson', method='sgd')
-    algorithm = model_based(X_train, model='svdpp')
-    print(f"algorithm: {algorithm}")
+    # models = ['baseline', 'knn_basic', 'knn_baseline', 'knn_with_means', 'knn_with_z_score']
+    # baseline_methods = ['als', 'sgd']
+    # similarities = ['cosine', 'msd', 'pearson']
+    #
+    # algorithm = memory_based(X_train, model='knn_with_z_score', similarity='pearson', method='sgd')
+    # algorithm = model_based(X_train, model='svdpp')
+    # print(f"algorithm: {algorithm}")
