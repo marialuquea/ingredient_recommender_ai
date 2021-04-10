@@ -3,8 +3,8 @@ from sklearn.metrics import roc_curve, auc, precision_score, recall_score, f1_sc
 from sklearn.model_selection import KFold
 from sklearn.multiclass import OneVsRestClassifier
 from sklearn.preprocessing import label_binarize
-from surprise import KNNWithZScore, KNNWithMeans, KNNBasic, KNNBaseline, BaselineOnly
-from surprise.model_selection import cross_validate
+from surprise import KNNWithZScore, KNNWithMeans, KNNBasic, KNNBaseline, BaselineOnly, SVD, NMF, SVDpp
+from surprise.model_selection import cross_validate, GridSearchCV
 import matplotlib.pyplot as plt
 import numpy as np
 from data.split_train_test import *
@@ -38,6 +38,27 @@ def memory_based(X, model='baseline', similarity='cosine', method='als', cv=2, m
 
     elif model == 'knn_with_z_score':
         algo = KNNWithZScore(sim_options=sim_options)
+    else:
+        raise Exception(f"Invalid model passed to function {model}")
+
+    print(f"Cross validating algorithm with {cv} folds")
+
+    return cross_validate(algo, X_train, measures=measures, cv=cv, verbose=verbose)
+
+
+def model_based(X, model='svd', cv=2, measures=['RMSE'], verbose=True):
+    X_train = surprise_transform(X)
+
+    if model == 'svd':
+        algo = SVD()
+
+    elif model == 'svdpp':
+        algo = SVDpp()
+
+    # throws zero division error if all quantities are zero related to a item_id or store_id
+    # elif model == 'nmf':
+    #     algo = NMF()
+
     else:
         raise Exception(f"Invalid model passed to function {model}")
 
@@ -165,7 +186,7 @@ if __name__ == '__main__':
     f = Figlet(font='slant')
     print(f.renderText('DME MiniProject'))
 
-    # X_train, X_val, X_test, y_train, y_val, y_test = get_data()
+    #X_train, X_val, X_test, y_train, y_val, y_test = get_data()
     # random_forest(X_train, X_val, X_test, y_train, y_val, y_test)
     # naive_bayes(X_train, X_val, X_test, y_train, y_val, y_test)
     # svm(X_train, X_val, X_test, y_train, y_val, y_test)
@@ -178,8 +199,6 @@ if __name__ == '__main__':
     baseline_methods = ['als', 'sgd']
     similarities = ['cosine', 'msd', 'pearson']
 
-    algorithm = memory_based(X_train, model='knn_with_z_score', similarity='pearson', method='sgd')
+    #algorithm = memory_based(X_train, model='knn_with_z_score', similarity='pearson', method='sgd')
+    algorithm = model_based(X_train, model='svdpp')
     print(f"algorithm: {algorithm}")
-
-    # ------ Model based ------
-    # TODO: model based
