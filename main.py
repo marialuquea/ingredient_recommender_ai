@@ -15,8 +15,11 @@ from pyfiglet import Figlet
 from numpy import interp
 import joblib
 
-def memory_based(X, model='baseline', similarity='cosine', method='als', cv=2, measures=['RMSE'], verbose=True):
-    X_train = surprise_transform(X)
+def memory_based(model='baseline', similarity='cosine', method='als', cv=2, measures=['RMSE'], verbose=True):
+    xTrain, _ = get_data(y_val=False)
+    print(type(xTrain), type(xTrain.iloc[:300, :])) #TODO: FIX THIS
+    X_train = surprise_transform(xTrain)
+    print(f"Training with dataset of shape {type(X_train)} {X_train.shape}")
     sim_options = {'name': similarity, 'user_based': False}
 
     if model == 'baseline':
@@ -26,27 +29,23 @@ def memory_based(X, model='baseline', similarity='cosine', method='als', cv=2, m
         elif method == 'sgd':
             bsl_options = {'method': 'sgd', 'learning_rate': .00005}
             algo = BaselineOnly(bsl_options=bsl_options)
-
     elif model == 'knn_basic':
         algo = KNNBasic(sim_options=sim_options)
-
     elif model == 'knn_baseline':
         algo = KNNBaseline(sim_options=sim_options)
-
     elif model == 'knn_with_means':
         algo = KNNWithMeans(sim_options=sim_options)
-
     elif model == 'knn_with_z_score':
         algo = KNNWithZScore(sim_options=sim_options)
     else:
         raise Exception(f"Invalid model passed to function {model}")
-
     print(f"Cross validating algorithm with {cv} folds")
-
     return cross_validate(algo, X_train, measures=measures, cv=cv, verbose=verbose)
 
-def model_based(X, model='svd', cv=2, measures=['RMSE'], verbose=True):
-    X_train = surprise_transform(X)
+def model_based(model='svd', cv=2, measures=['RMSE'], verbose=True):
+    xTrain, _ = get_data(y_val=False)
+    print(f"Training with dataset of shape {xTrain.shape}")
+    X_train = surprise_transform(xTrain)
 
     if model == 'svd':
         algo = SVD()
@@ -218,30 +217,21 @@ if __name__ == '__main__':
     f = Figlet(font='slant')
     print(f.renderText('DME MiniProject'))
 
-    finished = False
-    while finished == False:
+    while True:
         ask()
         option = input("Choose a number: ")
         if option == "1":
             choose_ML_model()
         if option == "2":
-            print("Model based")
+            model = input("Choose a model to train: 'svd', 'svdpp', 'nmf': ")
+            cv = int(input("Choose cross validation folds (minimum=2): "))
+            model_based(model=model, cv=cv, measures=['RMSE'], verbose=True)
         if option == "3":
-            print("Memory based")
+            model = input("Choose a model to train: 'baseline', 'knn_basic', 'knn_baseline', 'knn_with_means', 'knn_with_z_score': ")
+            method = input("Choose a baseline method to train: 'als', 'sgd': ")
+            similarity = input("Choose a similarity to train: 'cosine', 'msd', 'pearson': ") # Isn't pearson the same as cosine?
+            cv = int(input("Choose cross validation folds (minimum=2): "))
+            memory_based(model=model, similarity=similarity, method=method, cv=2, measures=['RMSE'], verbose=True)
         if option == "4":
-            finished = True
+            break
 
-
-
-    # ------ Collborative filtering ------
-    # X_train, X_test = get_data(y_val=False)
-    # print(X_train.shape, X_test.shape)
-
-    # ------ Memory based ------
-    # models = ['baseline', 'knn_basic', 'knn_baseline', 'knn_with_means', 'knn_with_z_score']
-    # baseline_methods = ['als', 'sgd']
-    # similarities = ['cosine', 'msd', 'pearson']
-    #
-    # algorithm = memory_based(X_train, model='knn_with_z_score', similarity='pearson', method='sgd')
-    # algorithm = model_based(X_train, model='svdpp')
-    # print(f"algorithm: {algorithm}")
