@@ -1,12 +1,12 @@
 from itertools import cycle
 import argparse
 import joblib
-from sklearn.metrics import roc_curve, auc, precision_score, recall_score, f1_score, confusion_matrix
-from sklearn.model_selection import KFold
+from sklearn.metrics import roc_curve, auc, confusion_matrix
+from sklearn.model_selection import cross_val_score
 from sklearn.multiclass import OneVsRestClassifier
 from sklearn.preprocessing import label_binarize
 from surprise import KNNWithZScore, KNNWithMeans, KNNBasic, KNNBaseline, BaselineOnly, SVD, NMF, SVDpp
-from surprise.model_selection import cross_validate, GridSearchCV
+from surprise.model_selection import cross_validate
 import matplotlib.pyplot as plt
 import numpy as np
 from data.split_train_test import *
@@ -103,45 +103,40 @@ def model_based(model='svd'):
 def random_forest(X_train, X_val, X_test, y_train, y_val, y_test, importances=False, verbose=0):
     if verbose == True: verbose = 3
     rf = RandomForest(X_train, y_train, X_test, y_test, verbose=verbose)
-    if importances:
-        rf.get_importances()
-    plot_true_Vs_predicted(y_val, rf.predict(X_val))
-    print("Evaluating Random Forest algorithm")
-    evaluate_model(X_train, y_train, rf.clf)
-    print("Plotting roc curves for RF model")
-    plot_roc_curve(X_train, y_train, X_test, y_test, RandomForestClassifier())
-    get_metrics(rf.clf, X_val, y_val)
-    # TODO: grid search
+    # if importances:
+    #     rf.get_importances()
+    # plot_true_Vs_predicted(y_val, rf.predict(X_val))
+    # plot_roc_curve(X_train, y_train, X_test, y_test, RandomForestClassifier())
+    # compute_confusion_matrix(y_test.values, rf.predict(X_test.values))
+    X_final = pd.concat([X_test, X_val])
+    y_final = pd.concat([y_test, y_val])
+    print(f"Accuracy of validation+test sets together: {accuracy_score(y_final.values, rf.predict(X_final))}")
     return rf.clf
 
 def naive_bayes(X_train, X_val, X_test, y_train, y_val, y_test):
     nb = NaiveBayes(X_train, y_train, X_test, y_test)
-    plot_true_Vs_predicted(y_val, nb.predict(X_val))
-    print("Evaluating Naive Bayes algorithm")
-    evaluate_model(X_train, y_train, nb.clf)
-    get_metrics(nb.clf, X_val, y_val)
-    # TODO: grid search
+    # plot_true_Vs_predicted(y_val, nb.predict(X_val))
+    X_final = pd.concat([X_test, X_val])
+    y_final = pd.concat([y_test, y_val])
+    print(f"Accuracy of validation+test sets together: {accuracy_score(y_final.values, nb.predict(X_final))}")
     return nb.clf
 
-def svm(X_train, X_val, X_test, y_train, y_val, y_test, verbose=True):
-    if verbose == True: verbose = 3
-    svm = SVM(X_train, y_train, X_test, y_test, verbose=verbose)
-    plot_true_Vs_predicted(y_val, svm.predict(X_val))
-    print("Evaluating SVM algorithm")
-    evaluate_model(X_train, y_train, svm.clf)
-    print("Plotting roc curves for SVM model")
-    plot_roc_curve(X_train, y_train, X_test, y_test, SVC())
-    get_metrics(svm.clf, X_val, y_val)
-    # TODO: grid search
+def svm(X_train, X_val, X_test, y_train, y_val, y_test):
+    svm = SVM(X_train, y_train, X_test, y_test, verbose=0)
+    # plot_true_Vs_predicted(y_val, svm.predict(X_val))
+    # plot_roc_curve(X_train, y_train, X_test, y_test, SVC())
+    X_final = pd.concat([X_test, X_val])
+    y_final = pd.concat([y_test, y_val])
+    print(f"Accuracy of validation+test sets together: {accuracy_score(y_final.values, svm.predict(X_final))}")
     return svm.clf
 
-def choose_ML_model(opts):
+def choose_ML_model(option):
     X_train, X_val, X_test, y_train, y_val, y_test = get_data()
-    if opts.cuisine_model == 'random_forest':
+    if option == 'random_forest':
         model = random_forest(X_train, X_val, X_test, y_train, y_val, y_test, verbose=opts.verbose)
-    elif opts.cuisine_model == 'naive_bayes':
+    elif option == 'naive_bayes':
         model = naive_bayes(X_train, X_val, X_test, y_train, y_val, y_test)
-    elif opts.cuisine_model == 'svm':
+    elif option == 'svm':
         model = svm(X_train, X_val, X_test, y_train, y_val, y_test, verbose=opts.verbose)
     else:
         print("Invalid input, try again.")
@@ -149,15 +144,12 @@ def choose_ML_model(opts):
     filename = f"models/{opts.cuisine_model}.sav"
     joblib.dump(model, filename)
     print(f"Model {model} saved correctly as {filename}!")
+    return model
 
 def load_trained_model(opts):
     _, X_val, _, _, y_val, _ = get_data()
     model = joblib.load(f'models/{opts.cuisine_model}.sav')
-    get_metrics(model, X_val, y_val)
-
-def get_metrics(model, X_val, y_val):
-    print(f"Accuracy of testing set: {accuracy_score(y_val.values, model.predict(X_val))}")
-    print(compute_confusion_matrix(y_val, model.predict(X_val)))
+    return model
 
 def compute_confusion_matrix(y_true, predictions):
     return confusion_matrix(y_true, predictions, labels=np.unique(y_true))
@@ -208,47 +200,35 @@ def plot_roc_curve(X_train, y_train, X_test, y_test, model):
     plt.legend(bbox_to_anchor=(1, 1), loc="upper left")
     plt.show()
 
-def evaluate_model(xTrain, yTrain, model):
-    kfold = KFold(n_splits=3, shuffle=True)
-    count, avg_roc_auc, avg_accuracy, avg_precision, avg_recall, avg_f1score = 0, 0, 0, 0, 0, 0
-    for train, test in kfold.split(xTrain):
-        print(f"Test: {count + 1}")
-        X_train, X_test = xTrain.iloc[train], xTrain.iloc[test]
-        y_train, y_true = yTrain.iloc[train], yTrain.iloc[test]
-        y_pred = model.predict(X_test)
-        avg_accuracy += accuracy_score(y_true, y_pred)
-        avg_precision += precision_score(y_true, y_pred, average='micro')
-        avg_recall += recall_score(y_true, y_pred, average='micro')
-        avg_f1score += f1_score(y_true, y_pred, average='micro')
-        count += 1
-    avg_accuracy /= count
-    avg_precision /= count
-    avg_recall /= count
-    avg_f1score /= count
-    print(f"\n{model} evaluation results")
-    print("Average accuracy:", avg_accuracy)
-    print("Average precision:", avg_precision)
-    print("Average recall:", avg_recall)
-    print("Average f1 score:", avg_f1score)
-    return avg_accuracy, avg_precision, avg_recall, avg_f1score
+def evaluate_model(xTrain, yTrain, model, cv=5):
+    scores = cross_val_score(model, xTrain, yTrain, cv=cv)
+    print(f'Cross validation score: {sum(scores)/cv}, Scores: {scores}')
+
+def cross_validate_all_models():
+    X_train, X_val, X_test, y_train, y_val, y_test = get_data()
+    rf = random_forest(X_train, X_val, X_test, y_train, y_val, y_test)
+    evaluate_model(X_train, y_train, rf)
+    svm_model = svm(X_train, X_val, X_test, y_train, y_val, y_test)
+    evaluate_model(X_train, y_train, svm_model)
+    nb = naive_bayes(X_train, X_val, X_test, y_train, y_val, y_test)
+    evaluate_model(X_train, y_train, nb)
 
 if __name__ == '__main__':
     opts = get_argparser().parse_args()
 
+    # cross_validate_all_models()
+
     f = Figlet(font='slant')
     print(f.renderText(opts.render))
-
     if opts.task == 'cuisine':
         if opts.load_or_train == 'load':
             load_trained_model(opts)
         else:
-            choose_ML_model(opts)
-
+            model = choose_ML_model(opts.cuisine_model)
     elif opts.task == 'recommendation':
         print(f"Task: {opts.task}; Model: {opts.recommendation_model}" \
               + f"; Method: {opts.baseline_method}" * (opts.recommendation_model == 'baseline') \
               + f"; Similarity: {opts.similarity}" * (opts.recommendation_model != 'baseline'))
-
         X_train, X_test = get_data(y_val=False)
         if opts.recommendation_model in ['baseline', 'knn_basic', 'knn_baseline', 'knn_with_means', 'knn_with_z_score']:
             algo = memory_based(model=opts.recommendation_model, similarity=opts.similarity, method=opts.baseline_method)
@@ -257,6 +237,5 @@ if __name__ == '__main__':
             # results = cross_validate_model(algo, X_train)
             fitted_model = fit_model(X_train, algo)
             predictions = predict_from_model(algo)
-
         if opts.recommendation_model in ['svd', 'svdpp','nmf']:
             results = model_based(model=opts.recommendation_model)
