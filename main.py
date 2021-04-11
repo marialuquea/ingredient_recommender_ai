@@ -1,4 +1,6 @@
 from itertools import cycle
+import argparse
+
 from sklearn.metrics import roc_curve, auc, precision_score, recall_score, f1_score, confusion_matrix
 from sklearn.model_selection import KFold
 from sklearn.multiclass import OneVsRestClassifier
@@ -15,6 +17,39 @@ from pyfiglet import Figlet
 from numpy import interp
 
 
+def get_argparser():
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("--render", type=str, default='DME MiniProject',
+                        help="text to render")
+
+    parser.add_argument("--verbose", type=int, default=0,
+                        help="verbosity of the process")
+
+    parser.add_argument("--task", type=str, default='cuisine', 
+                        choices=['cuisine', 'recommendation'],
+                        help="task to perform")
+    
+    parser.add_argument("--cuisine_model", type=str, default='random_forest', 
+                        choices=['random_forest', 'naive_bayes', 'svm'],
+                        help="model to use on the cuisine task")
+
+    parser.add_argument("--recommendation_model", type=str, default='baseline', 
+                    choices=['baseline', 'knn_basic', 'knn_baseline', 'knn_with_means', 'knn_with_z_score'],
+                    help="model to use on the recommendation task")
+
+    parser.add_argument("--baseline_method", type=str, default='als', 
+                        choices=['als', 'sgd'],
+                        help="method used by the baseline model (recommendation task)")
+
+    parser.add_argument("--similarity", type=str, default='cosine', 
+                        choices=['cosine', 'msd', 'pearson'],
+                        help="similarity metric used by the KNN models (recommendation task)")
+
+    return parser
+
+
+
 def memory_based(X, model='baseline', similarity='cosine', method='als', cv=2, measures=['RMSE'], verbose=True):
     X_train = surprise_transform(X)
     sim_options = {'name': similarity, 'user_based': False}
@@ -26,6 +61,8 @@ def memory_based(X, model='baseline', similarity='cosine', method='als', cv=2, m
         elif method == 'sgd':
             bsl_options = {'method': 'sgd', 'learning_rate': .00005}
             algo = BaselineOnly(bsl_options=bsl_options)
+        else:
+            raise Exception(f"Invalid method passed to function {method}")
 
     elif model == 'knn_basic':
         algo = KNNBasic(sim_options=sim_options)
@@ -45,7 +82,7 @@ def memory_based(X, model='baseline', similarity='cosine', method='als', cv=2, m
 
     return cross_validate(algo, X_train, measures=measures, cv=cv, verbose=verbose)
 
-
+  
 def model_based(X, model='svd', cv=2, measures=['RMSE'], verbose=True):
     X_train = surprise_transform(X)
 
@@ -67,8 +104,8 @@ def model_based(X, model='svd', cv=2, measures=['RMSE'], verbose=True):
     return cross_validate(algo, X_train, measures=measures, cv=cv, verbose=verbose)
 
 
-def random_forest(X_train, X_val, X_test, y_train, y_val, y_test, importances=False):
-    rf = RandomForest(X_train, y_train, X_test, y_test)
+def random_forest(X_train, X_val, X_test, y_train, y_val, y_test, importances=False, verbose=True):
+    rf = RandomForest(X_train, y_train, X_test, y_test, verbose=verbose)
     if importances:
         rf.get_importances()
     plot_true_Vs_predicted(y_val, rf.predict(X_val))
@@ -91,8 +128,8 @@ def naive_bayes(X_train, X_val, X_test, y_train, y_val, y_test):
     # TODO: grid search
 
 
-def svm(X_train, X_val, X_test, y_train, y_val, y_test):
-    svm = SVM(X_train, y_train, X_test, y_test)
+def svm(X_train, X_val, X_test, y_train, y_val, y_test, verbose=True):
+    svm = SVM(X_train, y_train, X_test, y_test, verbose=verbose)
     plot_true_Vs_predicted(y_val, svm.predict(X_val))
     print(f"Accuracy of testing set: {svm.accuracy}")
     print("Evaluating SVM algorithm")
@@ -183,22 +220,36 @@ def evaluate_model(xTrain, yTrain, model):
 
 
 if __name__ == '__main__':
+    opts = get_argparser().parse_args()
+        
     f = Figlet(font='slant')
-    print(f.renderText('DME MiniProject'))
+    print(f.renderText(opts.render))
 
-    #X_train, X_val, X_test, y_train, y_val, y_test = get_data()
-    # random_forest(X_train, X_val, X_test, y_train, y_val, y_test)
-    # naive_bayes(X_train, X_val, X_test, y_train, y_val, y_test)
-    # svm(X_train, X_val, X_test, y_train, y_val, y_test)
 
-    # ------ Collborative filtering ------
-    X_train, X_test = get_data(y_val=False)
+    if opts.task == 'cuisine':
+        X_train, X_val, X_test, y_train, y_val, y_test = get_data()
+        random_forest(X_train, X_val, X_test, y_train, y_val, y_test)
+        naive_bayes(X_train, X_val, X_test, y_train, y_val, y_test)
+        svm(X_train, X_val, X_test, y_train, y_val, y_test)
+        print(f"Task: {opts.task}; Model: {opts.cuisine_model}")
 
-    # ------ Memory based ------
-    models = ['baseline', 'knn_basic', 'knn_baseline', 'knn_with_means', 'knn_with_z_score']
-    baseline_methods = ['als', 'sgd']
-    similarities = ['cosine', 'msd', 'pearson']
+        if opts.cuisine_model == 'random_forest':
+            random_forest(X_train, X_val, X_test, y_train, y_val, y_test, verbose=opts.verbose)
+        elif opts.cuisine_model == 'naive_bayes':
+            naive_bayes(X_train, X_val, X_test, y_train, y_val, y_test)
+        elif opts.cuisine_model == 'svm':
+            svm(X_train, X_val, X_test, y_train, y_val, y_test, verbose=opts.verbose)
+    
+    elif opts.task == 'recommendation':
+        print(f"Task: {opts.task}; Model: {opts.recommendation_model}" \
+            + f"; Method: {opts.baseline_method}" * (opts.recommendation_model == 'baseline') \
+            + f"; Similarity: {opts.similarity}" * (opts.recommendation_model != 'baseline'))
 
-    #algorithm = memory_based(X_train, model='knn_with_z_score', similarity='pearson', method='sgd')
-    algorithm = model_based(X_train, model='svdpp')
-    print(f"algorithm: {algorithm}")
+        X_train, X_test = get_data(y_val=False)
+        
+        results = memory_based(X_train, model=opts.recommendation_model, similarity=opts.similarity, 
+                                method=opts.baseline_method, verbose=opts.verbose)
+
+    #algorithm = model_based(X_train, model='svdpp')
+    #print(f"algorithm: {algorithm}")
+
