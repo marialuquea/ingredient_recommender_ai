@@ -51,8 +51,7 @@ def get_argparser():
 
     return parser
 
-def memory_based(X, model='baseline', similarity='cosine', method='als', cv=2, measures=['RMSE'], verbose=True):
-    X_train = surprise_transform(X)
+def memory_based(model='baseline', similarity='cosine', method='als'):
     sim_options = {'name': similarity, 'user_based': False}
     if model == 'baseline':
         if method == 'als':
@@ -73,12 +72,24 @@ def memory_based(X, model='baseline', similarity='cosine', method='als', cv=2, m
         algo = KNNWithZScore(sim_options=sim_options)
     else:
         raise Exception(f"Invalid model passed to function {model}")
+    return algo
+
+def cross_validate_model(algo, X, cv=3, measures=['RMSE'], verbose=True):
+    X_train = surprise_transform(X)
     print(f"Cross validating algorithm with {cv} folds")
     return cross_validate(algo, X_train, measures=measures, cv=cv, verbose=verbose)
 
-def model_based(X, model='svd', cv=2, measures=['RMSE'], verbose=True):
+def fit_model(X, model):
     X_train = surprise_transform(X)
-    if model == 'svd':
+    return model.fit(X_train)
+
+def predict_from_model(model):
+    #TODO: read this https://surprise.readthedocs.io/en/stable/getting_started.html#getting-started and implement prediction function
+    #TODO: pass Rodrigo's partial recipes dataset and calculate errors/accuracies
+    return predictions
+
+def model_based(model='svd'):
+    if model == 'svd': # same as Probabilistic Matrix Factorization
         algo = SVD()
     elif model == 'svdpp':
         algo = SVDpp()
@@ -87,8 +98,7 @@ def model_based(X, model='svd', cv=2, measures=['RMSE'], verbose=True):
         algo = NMF()
     else:
         raise Exception(f"Invalid model passed to function {model}")
-    print(f"Cross validating algorithm with {cv} folds")
-    return cross_validate(algo, X_train, measures=measures, cv=cv, verbose=verbose)
+    return algo
 
 def random_forest(X_train, X_val, X_test, y_train, y_val, y_test, importances=False, verbose=0):
     if verbose == True: verbose = 3
@@ -241,9 +251,12 @@ if __name__ == '__main__':
 
         X_train, X_test = get_data(y_val=False)
         if opts.recommendation_model in ['baseline', 'knn_basic', 'knn_baseline', 'knn_with_means', 'knn_with_z_score']:
-            results = memory_based(X_train, model=opts.recommendation_model, similarity=opts.similarity,
-                               method=opts.baseline_method, verbose=opts.verbose)
-        if opts.recommendation_model in ['svd', 'svdpp','nmf']:
-            results = model_based(X_train, model=opts.recommendation_model, verbose=opts.verbose)
+            algo = memory_based(model=opts.recommendation_model, similarity=opts.similarity, method=opts.baseline_method)
+            print("about to cross validate")
+            # TODO: do a flag to cross_validate model or not
+            # results = cross_validate_model(algo, X_train)
+            fitted_model = fit_model(X_train, algo)
+            predictions = predict_from_model(algo)
 
-        #TODO: do something with the results... predict new stuff?
+        if opts.recommendation_model in ['svd', 'svdpp','nmf']:
+            results = model_based(model=opts.recommendation_model)
