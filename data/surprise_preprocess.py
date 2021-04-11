@@ -23,18 +23,30 @@ def surprise_transform(data):
     reader = Reader(rating_scale = (0, 1))
     return Dataset.load_from_df(surprise_data[['recipe_id', 'ingredient', 'rating']], reader)
 
-def create_testset(X_test, n = 1):
+def create_testset(n = 1):
 
+    df = pd.read_csv('data/recipes.csv')
+    X = df.iloc[:, :-1]
     rng = np.random.default_rng(123)
-    hidden_ingredients = np.zeros(X_test.shape)
-    n_rows = X_test.shape[0]
-    X_test = X_test.to_numpy()
+    n_rows = X.shape[0]
+    cols = list(X.columns)
+    X = X.to_numpy()
 
     for i in range(n_rows):
         
-        ingredients = np.squeeze(np.array(np.nonzero(X_test[i, :])))
+        ingredients = np.squeeze(np.array(np.nonzero(X[i, :])))
         hide_mask = rng.choice(ingredients, size = n, replace = False)
-        X_test[i, hide_mask] = 0
-        hidden_ingredients[i, hide_mask] = 1
+        X[i, hide_mask] = -1
 
-    return X_test, hidden_ingredients    
+    surprise_data = pd.DataFrame(data = X, columns=cols)
+    surprise_data['recipe_id'] = surprise_data.index
+    surprise_data = pd.melt(surprise_data,id_vars = ['recipe_id'], value_vars = cols, 
+    var_name = 'ingredient', value_name = 'rating')
+    hidden_ratings = surprise_data.loc[surprise_data['rating'] == -1]
+    hidden_ratings = hidden_ratings.replace(-1, 1)
+    surprise_data = surprise_data.loc[surprise_data['rating'] != -1]
+    reader = Reader(rating_scale = (0, 1))
+    surprise_data = Dataset.load_from_df(surprise_data[['recipe_id', 'ingredient', 'rating']], reader)
+    hidden_ratings = Dataset.load_from_df(hidden_ratings[['recipe_id', 'ingredient', 'rating']], reader)
+
+    return surprise_data, hidden_ratings   
