@@ -158,13 +158,13 @@ def evaluate_model(xTrain, yTrain, model):
 
 
 if __name__ == '__main__':
-    #f = Figlet(font='slant')
-    #print(f.renderText('DME MiniProject'))
+    f = Figlet(font='slant')
+    print(f.renderText('DME MiniProject'))
 
-    #X_train, X_val, X_test, y_train, y_val, y_test = get_data()
+    X_train, X_val, X_test, y_train, y_val, y_test = get_data()
 
-    #random_forest(X_train, X_val, X_test, y_train, y_val, y_test)
-    #naive_bayes(X_train, X_val, X_test, y_train, y_val, y_test)
+    random_forest(X_train, X_val, X_test, y_train, y_val, y_test)
+    naive_bayes(X_train, X_val, X_test, y_train, y_val, y_test)
 
     X_train, X_test = split_data()
 
@@ -173,3 +173,4 @@ if __name__ == '__main__':
     similarities = ['cosine', 'msd', 'pearson']
     
     results = memory_based(X_train, model = models[4], similarity=similarities[2], method=baseline_methods[1])
+    X_test, mask = create_testset(X_test, n = 1)
