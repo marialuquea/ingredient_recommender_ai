@@ -1,6 +1,6 @@
 from itertools import cycle
 import argparse
-
+import joblib
 from sklearn.metrics import roc_curve, auc, precision_score, recall_score, f1_score, confusion_matrix
 from sklearn.model_selection import KFold
 from sklearn.multiclass import OneVsRestClassifier
@@ -16,7 +16,6 @@ from algorithms.SVM import *
 from pyfiglet import Figlet
 from numpy import interp
 
-
 def get_argparser():
     parser = argparse.ArgumentParser()
 
@@ -26,34 +25,34 @@ def get_argparser():
     parser.add_argument("--verbose", type=int, default=0,
                         help="verbosity of the process")
 
-    parser.add_argument("--task", type=str, default='cuisine', 
+    parser.add_argument("--task", type=str, default='cuisine',
                         choices=['cuisine', 'recommendation'],
                         help="task to perform")
-    
-    parser.add_argument("--cuisine_model", type=str, default='random_forest', 
+
+    parser.add_argument("--cuisine_model", type=str, default='random_forest',
                         choices=['random_forest', 'naive_bayes', 'svm'],
                         help="model to use on the cuisine task")
 
-    parser.add_argument("--recommendation_model", type=str, default='baseline', 
-                    choices=['baseline', 'knn_basic', 'knn_baseline', 'knn_with_means', 'knn_with_z_score'],
-                    help="model to use on the recommendation task")
+    parser.add_argument("--load_or_train", type=str, default='train',
+                        choices=['load', 'train'],
+                        help="load a pre-trained model or train one")
 
-    parser.add_argument("--baseline_method", type=str, default='als', 
+    parser.add_argument("--recommendation_model", type=str, default='baseline',
+                        choices=['baseline', 'knn_basic', 'knn_baseline', 'knn_with_means', 'knn_with_z_score', 'svd', 'svdpp', 'nmf'],
+                        help="memory model to use on the recommendation task")
+
+    parser.add_argument("--baseline_method", type=str, default='als',
                         choices=['als', 'sgd'],
                         help="method used by the baseline model (recommendation task)")
 
-    parser.add_argument("--similarity", type=str, default='cosine', 
+    parser.add_argument("--similarity", type=str, default='cosine',
                         choices=['cosine', 'msd', 'pearson'],
                         help="similarity metric used by the KNN models (recommendation task)")
 
     return parser
 
-
-
-def memory_based(X, model='baseline', similarity='cosine', method='als', cv=2, measures=['RMSE'], verbose=True):
-    X_train = surprise_transform(X)
+def memory_based(model='baseline', similarity='cosine', method='als'):
     sim_options = {'name': similarity, 'user_based': False}
-
     if model == 'baseline':
         if method == 'als':
             bsl_options = {'method': 'als', 'n_epochs': 5, 'reg_u': 12, 'reg_i': 5}
@@ -63,86 +62,105 @@ def memory_based(X, model='baseline', similarity='cosine', method='als', cv=2, m
             algo = BaselineOnly(bsl_options=bsl_options)
         else:
             raise Exception(f"Invalid method passed to function {method}")
-
     elif model == 'knn_basic':
         algo = KNNBasic(sim_options=sim_options)
-
     elif model == 'knn_baseline':
         algo = KNNBaseline(sim_options=sim_options)
-
     elif model == 'knn_with_means':
         algo = KNNWithMeans(sim_options=sim_options)
-
     elif model == 'knn_with_z_score':
         algo = KNNWithZScore(sim_options=sim_options)
     else:
         raise Exception(f"Invalid model passed to function {model}")
+    return algo
 
+def cross_validate_model(algo, X, cv=3, measures=['RMSE'], verbose=True):
+    X_train = surprise_transform(X)
     print(f"Cross validating algorithm with {cv} folds")
-
     return cross_validate(algo, X_train, measures=measures, cv=cv, verbose=verbose)
 
-  
-def model_based(X, model='svd', cv=2, measures=['RMSE'], verbose=True):
+def fit_model(X, model):
     X_train = surprise_transform(X)
+    return model.fit(X_train)
 
-    if model == 'svd':
+def predict_from_model(model):
+    #TODO: read this https://surprise.readthedocs.io/en/stable/getting_started.html#getting-started and implement prediction function
+    #TODO: pass Rodrigo's partial recipes dataset and calculate errors/accuracies
+    return predictions
+
+def model_based(model='svd'):
+    if model == 'svd': # same as Probabilistic Matrix Factorization
         algo = SVD()
-
     elif model == 'svdpp':
         algo = SVDpp()
-
     # throws zero division error if all quantities are zero related to a item_id or store_id
-    # elif model == 'nmf':
-    #     algo = NMF()
-
+    elif model == 'nmf':
+        algo = NMF()
     else:
         raise Exception(f"Invalid model passed to function {model}")
+    return algo
 
-    print(f"Cross validating algorithm with {cv} folds")
-
-    return cross_validate(algo, X_train, measures=measures, cv=cv, verbose=verbose)
-
-
-def random_forest(X_train, X_val, X_test, y_train, y_val, y_test, importances=False, verbose=True):
+def random_forest(X_train, X_val, X_test, y_train, y_val, y_test, importances=False, verbose=0):
+    if verbose == True: verbose = 3
     rf = RandomForest(X_train, y_train, X_test, y_test, verbose=verbose)
     if importances:
         rf.get_importances()
     plot_true_Vs_predicted(y_val, rf.predict(X_val))
-    print(f"Accuracy of testing set: {rf.accuracy}")
     print("Evaluating Random Forest algorithm")
     evaluate_model(X_train, y_train, rf.clf)
     print("Plotting roc curves for RF model")
     plot_roc_curve(X_train, y_train, X_test, y_test, RandomForestClassifier())
-    print(compute_confusion_matrix(y_val, rf.predict(X_val)))
+    get_metrics(rf.clf, X_val, y_val)
     # TODO: grid search
-
+    return rf.clf
 
 def naive_bayes(X_train, X_val, X_test, y_train, y_val, y_test):
     nb = NaiveBayes(X_train, y_train, X_test, y_test)
     plot_true_Vs_predicted(y_val, nb.predict(X_val))
-    print(f"Accuracy of predicted outcomes: {nb.accuracy}")
     print("Evaluating Naive Bayes algorithm")
     evaluate_model(X_train, y_train, nb.clf)
-    print(compute_confusion_matrix(y_val, nb.predict(X_val)))
+    get_metrics(nb.clf, X_val, y_val)
     # TODO: grid search
-
+    return nb.clf
 
 def svm(X_train, X_val, X_test, y_train, y_val, y_test, verbose=True):
+    if verbose == True: verbose = 3
     svm = SVM(X_train, y_train, X_test, y_test, verbose=verbose)
     plot_true_Vs_predicted(y_val, svm.predict(X_val))
-    print(f"Accuracy of testing set: {svm.accuracy}")
     print("Evaluating SVM algorithm")
     evaluate_model(X_train, y_train, svm.clf)
     print("Plotting roc curves for SVM model")
     plot_roc_curve(X_train, y_train, X_test, y_test, SVC())
-    print(compute_confusion_matrix(y_val, svm.predict(X_val)))
-    #TODO: grid search
+    get_metrics(svm.clf, X_val, y_val)
+    # TODO: grid search
+    return svm.clf
 
+def choose_ML_model(opts):
+    X_train, X_val, X_test, y_train, y_val, y_test = get_data()
+    if opts.cuisine_model == 'random_forest':
+        model = random_forest(X_train, X_val, X_test, y_train, y_val, y_test, verbose=opts.verbose)
+    elif opts.cuisine_model == 'naive_bayes':
+        model = naive_bayes(X_train, X_val, X_test, y_train, y_val, y_test)
+    elif opts.cuisine_model == 'svm':
+        model = svm(X_train, X_val, X_test, y_train, y_val, y_test, verbose=opts.verbose)
+    else:
+        print("Invalid input, try again.")
+        return
+    filename = f"models/{opts.cuisine_model}.sav"
+    joblib.dump(model, filename)
+    print(f"Model {model} saved correctly as {filename}!")
+
+def load_trained_model(opts):
+    _, X_val, _, _, y_val, _ = get_data()
+    model = joblib.load(f'models/{opts.cuisine_model}.sav')
+    get_metrics(model, X_val, y_val)
+
+def get_metrics(model, X_val, y_val):
+    print(f"Accuracy of testing set: {accuracy_score(y_val.values, model.predict(X_val))}")
+    print(compute_confusion_matrix(y_val, model.predict(X_val)))
 
 def compute_confusion_matrix(y_true, predictions):
     return confusion_matrix(y_true, predictions, labels=np.unique(y_true))
-
 
 def plot_true_Vs_predicted(y_true, predictions):
     plt.scatter(y_true, predictions, c='#FF7AA6')
@@ -151,7 +169,6 @@ def plot_true_Vs_predicted(y_true, predictions):
     plt.title('Precision of predicted outcomes')
     plt.plot(np.unique(y_true), np.poly1d(np.polyfit(y_true, predictions, 1))(np.unique(y_true)))
     plt.show()
-
 
 def plot_roc_curve(X_train, y_train, X_test, y_test, model):
     y = label_binarize(y_train, classes=np.unique(y_train))
@@ -191,16 +208,13 @@ def plot_roc_curve(X_train, y_train, X_test, y_test, model):
     plt.legend(bbox_to_anchor=(1, 1), loc="upper left")
     plt.show()
 
-
 def evaluate_model(xTrain, yTrain, model):
     kfold = KFold(n_splits=3, shuffle=True)
     count, avg_roc_auc, avg_accuracy, avg_precision, avg_recall, avg_f1score = 0, 0, 0, 0, 0, 0
-
     for train, test in kfold.split(xTrain):
         print(f"Test: {count + 1}")
         X_train, X_test = xTrain.iloc[train], xTrain.iloc[test]
         y_train, y_true = yTrain.iloc[train], yTrain.iloc[test]
-
         y_pred = model.predict(X_test)
         avg_accuracy += accuracy_score(y_true, y_pred)
         avg_precision += precision_score(y_true, y_pred, average='micro')
@@ -218,38 +232,31 @@ def evaluate_model(xTrain, yTrain, model):
     print("Average f1 score:", avg_f1score)
     return avg_accuracy, avg_precision, avg_recall, avg_f1score
 
-
 if __name__ == '__main__':
     opts = get_argparser().parse_args()
-        
+
     f = Figlet(font='slant')
     print(f.renderText(opts.render))
 
-
     if opts.task == 'cuisine':
-        X_train, X_val, X_test, y_train, y_val, y_test = get_data()
-        random_forest(X_train, X_val, X_test, y_train, y_val, y_test)
-        naive_bayes(X_train, X_val, X_test, y_train, y_val, y_test)
-        svm(X_train, X_val, X_test, y_train, y_val, y_test)
-        print(f"Task: {opts.task}; Model: {opts.cuisine_model}")
+        if opts.load_or_train == 'load':
+            load_trained_model(opts)
+        else:
+            choose_ML_model(opts)
 
-        if opts.cuisine_model == 'random_forest':
-            random_forest(X_train, X_val, X_test, y_train, y_val, y_test, verbose=opts.verbose)
-        elif opts.cuisine_model == 'naive_bayes':
-            naive_bayes(X_train, X_val, X_test, y_train, y_val, y_test)
-        elif opts.cuisine_model == 'svm':
-            svm(X_train, X_val, X_test, y_train, y_val, y_test, verbose=opts.verbose)
-    
     elif opts.task == 'recommendation':
         print(f"Task: {opts.task}; Model: {opts.recommendation_model}" \
-            + f"; Method: {opts.baseline_method}" * (opts.recommendation_model == 'baseline') \
-            + f"; Similarity: {opts.similarity}" * (opts.recommendation_model != 'baseline'))
+              + f"; Method: {opts.baseline_method}" * (opts.recommendation_model == 'baseline') \
+              + f"; Similarity: {opts.similarity}" * (opts.recommendation_model != 'baseline'))
 
         X_train, X_test = get_data(y_val=False)
-        
-        results = memory_based(X_train, model=opts.recommendation_model, similarity=opts.similarity, 
-                                method=opts.baseline_method, verbose=opts.verbose)
+        if opts.recommendation_model in ['baseline', 'knn_basic', 'knn_baseline', 'knn_with_means', 'knn_with_z_score']:
+            algo = memory_based(model=opts.recommendation_model, similarity=opts.similarity, method=opts.baseline_method)
+            print("about to cross validate")
+            # TODO: do a flag to cross_validate model or not
+            # results = cross_validate_model(algo, X_train)
+            fitted_model = fit_model(X_train, algo)
+            predictions = predict_from_model(algo)
 
-    #algorithm = model_based(X_train, model='svdpp')
-    #print(f"algorithm: {algorithm}")
-
+        if opts.recommendation_model in ['svd', 'svdpp','nmf']:
+            results = model_based(model=opts.recommendation_model)
