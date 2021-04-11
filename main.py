@@ -1,4 +1,6 @@
 from itertools import cycle
+import argparse
+import joblib
 from sklearn.metrics import roc_curve, auc, precision_score, recall_score, f1_score, confusion_matrix
 from sklearn.model_selection import KFold
 from sklearn.multiclass import OneVsRestClassifier
@@ -13,15 +15,45 @@ from algorithms.naive_bayes import *
 from algorithms.SVM import *
 from pyfiglet import Figlet
 from numpy import interp
-import joblib
 
-def memory_based(model='baseline', similarity='cosine', method='als', cv=2, measures=['RMSE'], verbose=True):
-    xTrain, _ = get_data(y_val=False)
-    print(type(xTrain), type(xTrain.iloc[:300, :])) #TODO: FIX THIS
-    X_train = surprise_transform(xTrain)
-    print(f"Training with dataset of shape {type(X_train)} {X_train.shape}")
+def get_argparser():
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument("--render", type=str, default='DME MiniProject',
+                        help="text to render")
+
+    parser.add_argument("--verbose", type=int, default=0,
+                        help="verbosity of the process")
+
+    parser.add_argument("--task", type=str, default='cuisine',
+                        choices=['cuisine', 'recommendation'],
+                        help="task to perform")
+
+    parser.add_argument("--cuisine_model", type=str, default='random_forest',
+                        choices=['random_forest', 'naive_bayes', 'svm'],
+                        help="model to use on the cuisine task")
+
+    parser.add_argument("--load_or_train", type=str, default='train',
+                        choices=['load', 'train'],
+                        help="load a pre-trained model or train one")
+
+    parser.add_argument("--recommendation_model", type=str, default='baseline',
+                        choices=['baseline', 'knn_basic', 'knn_baseline', 'knn_with_means', 'knn_with_z_score', 'svd', 'svdpp', 'nmf'],
+                        help="memory model to use on the recommendation task")
+
+    parser.add_argument("--baseline_method", type=str, default='als',
+                        choices=['als', 'sgd'],
+                        help="method used by the baseline model (recommendation task)")
+
+    parser.add_argument("--similarity", type=str, default='cosine',
+                        choices=['cosine', 'msd', 'pearson'],
+                        help="similarity metric used by the KNN models (recommendation task)")
+
+    return parser
+
+def memory_based(X, model='baseline', similarity='cosine', method='als', cv=2, measures=['RMSE'], verbose=True):
+    X_train = surprise_transform(X)
     sim_options = {'name': similarity, 'user_based': False}
-
     if model == 'baseline':
         if method == 'als':
             bsl_options = {'method': 'als', 'n_epochs': 5, 'reg_u': 12, 'reg_i': 5}
@@ -29,6 +61,8 @@ def memory_based(model='baseline', similarity='cosine', method='als', cv=2, meas
         elif method == 'sgd':
             bsl_options = {'method': 'sgd', 'learning_rate': .00005}
             algo = BaselineOnly(bsl_options=bsl_options)
+        else:
+            raise Exception(f"Invalid method passed to function {method}")
     elif model == 'knn_basic':
         algo = KNNBasic(sim_options=sim_options)
     elif model == 'knn_baseline':
@@ -42,11 +76,8 @@ def memory_based(model='baseline', similarity='cosine', method='als', cv=2, meas
     print(f"Cross validating algorithm with {cv} folds")
     return cross_validate(algo, X_train, measures=measures, cv=cv, verbose=verbose)
 
-def model_based(model='svd', cv=2, measures=['RMSE'], verbose=True):
-    xTrain, _ = get_data(y_val=False)
-    print(f"Training with dataset of shape {xTrain.shape}")
-    X_train = surprise_transform(xTrain)
-
+def model_based(X, model='svd', cv=2, measures=['RMSE'], verbose=True):
+    X_train = surprise_transform(X)
     if model == 'svd':
         algo = SVD()
     elif model == 'svdpp':
@@ -56,12 +87,12 @@ def model_based(model='svd', cv=2, measures=['RMSE'], verbose=True):
         algo = NMF()
     else:
         raise Exception(f"Invalid model passed to function {model}")
-
     print(f"Cross validating algorithm with {cv} folds")
     return cross_validate(algo, X_train, measures=measures, cv=cv, verbose=verbose)
 
-def random_forest(X_train, X_val, X_test, y_train, y_val, y_test, importances=False):
-    rf = RandomForest(X_train, y_train, X_test, y_test)
+def random_forest(X_train, X_val, X_test, y_train, y_val, y_test, importances=False, verbose=0):
+    if verbose == True: verbose = 3
+    rf = RandomForest(X_train, y_train, X_test, y_test, verbose=verbose)
     if importances:
         rf.get_importances()
     plot_true_Vs_predicted(y_val, rf.predict(X_val))
@@ -82,16 +113,37 @@ def naive_bayes(X_train, X_val, X_test, y_train, y_val, y_test):
     # TODO: grid search
     return nb.clf
 
-def svm(X_train, X_val, X_test, y_train, y_val, y_test):
-    svm = SVM(X_train, y_train, X_test, y_test)
+def svm(X_train, X_val, X_test, y_train, y_val, y_test, verbose=True):
+    if verbose == True: verbose = 3
+    svm = SVM(X_train, y_train, X_test, y_test, verbose=verbose)
     plot_true_Vs_predicted(y_val, svm.predict(X_val))
     print("Evaluating SVM algorithm")
     evaluate_model(X_train, y_train, svm.clf)
     print("Plotting roc curves for SVM model")
     plot_roc_curve(X_train, y_train, X_test, y_test, SVC())
     get_metrics(svm.clf, X_val, y_val)
-    #TODO: grid search
+    # TODO: grid search
     return svm.clf
+
+def choose_ML_model(opts):
+    X_train, X_val, X_test, y_train, y_val, y_test = get_data()
+    if opts.cuisine_model == 'random_forest':
+        model = random_forest(X_train, X_val, X_test, y_train, y_val, y_test, verbose=opts.verbose)
+    elif opts.cuisine_model == 'naive_bayes':
+        model = naive_bayes(X_train, X_val, X_test, y_train, y_val, y_test)
+    elif opts.cuisine_model == 'svm':
+        model = svm(X_train, X_val, X_test, y_train, y_val, y_test, verbose=opts.verbose)
+    else:
+        print("Invalid input, try again.")
+        return
+    filename = f"models/{opts.cuisine_model}.sav"
+    joblib.dump(model, filename)
+    print(f"Model {model} saved correctly as {filename}!")
+
+def load_trained_model(opts):
+    _, X_val, _, _, y_val, _ = get_data()
+    model = joblib.load(f'models/{opts.cuisine_model}.sav')
+    get_metrics(model, X_val, y_val)
 
 def get_metrics(model, X_val, y_val):
     print(f"Accuracy of testing set: {accuracy_score(y_val.values, model.predict(X_val))}")
@@ -149,12 +201,10 @@ def plot_roc_curve(X_train, y_train, X_test, y_test, model):
 def evaluate_model(xTrain, yTrain, model):
     kfold = KFold(n_splits=3, shuffle=True)
     count, avg_roc_auc, avg_accuracy, avg_precision, avg_recall, avg_f1score = 0, 0, 0, 0, 0, 0
-
     for train, test in kfold.split(xTrain):
         print(f"Test: {count + 1}")
         X_train, X_test = xTrain.iloc[train], xTrain.iloc[test]
         y_train, y_true = yTrain.iloc[train], yTrain.iloc[test]
-
         y_pred = model.predict(X_test)
         avg_accuracy += accuracy_score(y_true, y_pred)
         avg_precision += precision_score(y_true, y_pred, average='micro')
@@ -172,66 +222,28 @@ def evaluate_model(xTrain, yTrain, model):
     print("Average f1 score:", avg_f1score)
     return avg_accuracy, avg_precision, avg_recall, avg_f1score
 
-def ask():
-    print("Select an option:")
-    print("[1] - Train ML model with data to predict what type of cuisine a recipe belongs to.")
-    print("[2] - Use model based collaborative filtering to provide ingredient recommendation by developing a model of recipe ingredients")
-    print("[3] - Use memory based collaborative filtering to provide ingredient recommendation by the same process as 2.")
-    print("[4] - Exit program")
-
-def choose_ML_model():
-    print("Choose a model to work with.\n[1] - Random Forest\n[2] - Naive Bayes\n[3] - Support Vector Machine")
-    model_option = input("Choose a number: ")
-    option = input("Would you like to \n[1] - train a model\n[2] - load a pre-trained model\n(Make sure to create a folder called 'models' in this directory.)\nChoose a number: ")
-    if option == "1":
-        X_train, X_val, X_test, y_train, y_val, y_test = get_data()
-        if model_option == "1":
-            model = random_forest(X_train, X_val, X_test, y_train, y_val, y_test)
-            filename = "models/randomForest.sav"
-        elif model_option == "2":
-            model = naive_bayes(X_train, X_val, X_test, y_train, y_val, y_test)
-            filename = "models/naiveBayes.sav"
-        elif model_option == "3":
-            model = svm(X_train, X_val, X_test, y_train, y_val, y_test)
-            filename = "models/svm.sav"
-        else:
-            print("Invalid input, try again.")
-            return
-        joblib.dump(model, filename)
-        print(f"Model {model} saved correctly as {filename}!")
-    elif option == "2":
-        _, X_val, _, _, y_val, _ = get_data()
-        if model_option == "1":
-            model = joblib.load('models/randomForest.sav')
-        elif model_option == "2":
-            model = joblib.load('models/naiveBayes.sav')
-        elif model_option == "3":
-            model = joblib.load('models/svm.sav')
-        else:
-            print("Invalid input, try again.")
-            return
-        get_metrics(model, X_val, y_val)
-        #TODO: Allow user to input ingredient names and predict cuisine (?) Totally not needed but it would be cool lol
-
 if __name__ == '__main__':
+    opts = get_argparser().parse_args()
+
     f = Figlet(font='slant')
-    print(f.renderText('DME MiniProject'))
+    print(f.renderText(opts.render))
 
-    while True:
-        ask()
-        option = input("Choose a number: ")
-        if option == "1":
-            choose_ML_model()
-        if option == "2":
-            model = input("Choose a model to train: 'svd', 'svdpp', 'nmf': ")
-            cv = int(input("Choose cross validation folds (minimum=2): "))
-            model_based(model=model, cv=cv, measures=['RMSE'], verbose=True)
-        if option == "3":
-            model = input("Choose a model to train: 'baseline', 'knn_basic', 'knn_baseline', 'knn_with_means', 'knn_with_z_score': ")
-            method = input("Choose a baseline method to train: 'als', 'sgd': ")
-            similarity = input("Choose a similarity to train: 'cosine', 'msd', 'pearson': ") # Isn't pearson the same as cosine?
-            cv = int(input("Choose cross validation folds (minimum=2): "))
-            memory_based(model=model, similarity=similarity, method=method, cv=2, measures=['RMSE'], verbose=True)
-        if option == "4":
-            break
+    if opts.task == 'cuisine':
+        if opts.load_or_train == 'load':
+            load_trained_model(opts)
+        else:
+            choose_ML_model(opts)
 
+    elif opts.task == 'recommendation':
+        print(f"Task: {opts.task}; Model: {opts.recommendation_model}" \
+              + f"; Method: {opts.baseline_method}" * (opts.recommendation_model == 'baseline') \
+              + f"; Similarity: {opts.similarity}" * (opts.recommendation_model != 'baseline'))
+
+        X_train, X_test = get_data(y_val=False)
+        if opts.recommendation_model in ['baseline', 'knn_basic', 'knn_baseline', 'knn_with_means', 'knn_with_z_score']:
+            results = memory_based(X_train, model=opts.recommendation_model, similarity=opts.similarity,
+                               method=opts.baseline_method, verbose=opts.verbose)
+        if opts.recommendation_model in ['svd', 'svdpp','nmf']:
+            results = model_based(X_train, model=opts.recommendation_model, verbose=opts.verbose)
+
+        #TODO: do something with the results... predict new stuff?

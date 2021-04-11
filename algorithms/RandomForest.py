@@ -3,10 +3,10 @@ from sklearn.metrics import accuracy_score
 from sklearn.model_selection import GridSearchCV
 
 class RandomForest:
-    def __init__(self, xTrain, yTrain, xTest, yTest):
+    def __init__(self, xTrain, yTrain, xTest, yTest, verbose=0):
         print("\n\nRunning Random Forest classifier...")
 
-        rf = RandomForestClassifier(random_state=42).fit(xTrain.values, yTrain.values)
+        rf = RandomForestClassifier(random_state=42, verbose=verbose).fit(xTrain.values, yTrain.values)
         self.clf = rf
         self.feature_list = list(xTrain.columns)
         self.predictions = rf.predict(xTest)
