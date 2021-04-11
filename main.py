@@ -10,6 +10,7 @@ from surprise.model_selection import cross_validate, GridSearchCV
 import matplotlib.pyplot as plt
 import numpy as np
 from data.split_train_test import *
+from data.surprise_preprocess import *
 from algorithms.RandomForest import *
 from algorithms.naive_bayes import *
 from algorithms.SVM import *
@@ -250,6 +251,7 @@ if __name__ == '__main__':
               + f"; Similarity: {opts.similarity}" * (opts.recommendation_model != 'baseline'))
 
         X_train, X_test = get_data(y_val=False)
+        X_test, mask = X_test, mask = create_testset(X_test, n = 1)
         if opts.recommendation_model in ['baseline', 'knn_basic', 'knn_baseline', 'knn_with_means', 'knn_with_z_score']:
             algo = memory_based(model=opts.recommendation_model, similarity=opts.similarity, method=opts.baseline_method)
             print("about to cross validate")
