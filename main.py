@@ -1,8 +1,8 @@
 from itertools import cycle
 import argparse
 import joblib
-from sklearn.metrics import roc_curve, auc, confusion_matrix
-from sklearn.model_selection import cross_val_score
+from sklearn.metrics import roc_curve, auc, precision_score, recall_score, f1_score, confusion_matrix
+from sklearn.model_selection import KFold, cross_val_score
 from sklearn.multiclass import OneVsRestClassifier
 from sklearn.preprocessing import label_binarize
 from surprise import KNNWithZScore, KNNWithMeans, KNNBasic, KNNBaseline, BaselineOnly, SVD, NMF, SVDpp
@@ -16,6 +16,10 @@ from algorithms.naive_bayes import *
 from algorithms.SVM import *
 from pyfiglet import Figlet
 from numpy import interp
+import pickle
+from tqdm import tqdm
+
+
 
 def get_argparser():
     parser = argparse.ArgumentParser()
@@ -70,7 +74,7 @@ def memory_based(model='baseline', similarity='cosine', method='als'):
     elif model == 'knn_with_means':
         algo = KNNWithMeans(sim_options=sim_options)
     elif model == 'knn_with_z_score':
-        algo = KNNWithZScore(sim_options=sim_options)
+        algo = KNNWithZScore(sim_options=sim_options, k = 20)
     else:
         raise Exception(f"Invalid model passed to function {model}")
     return algo
@@ -84,14 +88,15 @@ def fit_model(X, model):
     X_train = surprise_transform(X)
     return model.fit(X_train)
 
-def predict_from_model(model):
+def predict_from_model(model, X_test):
     #TODO: read this https://surprise.readthedocs.io/en/stable/getting_started.html#getting-started and implement prediction function
     #TODO: pass Rodrigo's partial recipes dataset and calculate errors/accuracies
+    predictions = model.test()
     return predictions
 
 def model_based(model='svd'):
     if model == 'svd': # same as Probabilistic Matrix Factorization
-        algo = SVD()
+        algo = SVD(n_factors = 200)
     elif model == 'svdpp':
         algo = SVDpp()
     # throws zero division error if all quantities are zero related to a item_id or store_id
@@ -231,13 +236,31 @@ if __name__ == '__main__':
               + f"; Method: {opts.baseline_method}" * (opts.recommendation_model == 'baseline') \
               + f"; Similarity: {opts.similarity}" * (opts.recommendation_model != 'baseline'))
         X_train, X_test = get_data(y_val=False)
-        X_test, mask = X_test, mask = create_testset(X_test, n = 1)
         if opts.recommendation_model in ['baseline', 'knn_basic', 'knn_baseline', 'knn_with_means', 'knn_with_z_score']:
             algo = memory_based(model=opts.recommendation_model, similarity=opts.similarity, method=opts.baseline_method)
             print("about to cross validate")
             # TODO: do a flag to cross_validate model or not
-            # results = cross_validate_model(algo, X_train)
+            results = cross_validate_model(algo, X_train, measures = ['RMSE', 'MSE', 'MAE'])
             fitted_model = fit_model(X_train, algo)
             predictions = predict_from_model(algo)
+            full_train_data, hidden_rankings, full_test = create_recommendation_set(1)
+            print(hidden_rankings.shape)
+            algo.fit(full_train_data)
+            predictions = []
+            print("Running test predictions")
+            for _, row in tqdm(hidden_rankings.iterrows()):
+                current_uid = row['recipe_id']
+                current_iid = row['ingredient']
+                current_r = row['rating']
+                current_prediction = algo.predict(current_uid, current_iid, current_r)
+                predictions.append(current_prediction)
+            with open('rec_predictions_hidden.pkl', 'wb') as output:
+                pickle.dump(predictions, output, pickle.HIGHEST_PROTOCOL)
+            with open('rec_rankings_hidden.pkl', 'wb') as output:
+                pickle.dump(hidden_rankings, output, pickle.HIGHEST_PROTOCOL)
+            with open('full_test_hidden.pkl', 'wb') as output:
+                pickle.dump(full_test, output, pickle.HIGHEST_PROTOCOL)
+                
         if opts.recommendation_model in ['svd', 'svdpp','nmf']:
-            results = model_based(model=opts.recommendation_model)
+            algo = model_based(model=opts.recommendation_model)
+            results = cross_validate_model(algo, X_train, measures = ['RMSE', 'MSE', 'MAE'])
