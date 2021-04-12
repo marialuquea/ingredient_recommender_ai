@@ -1,14 +1,13 @@
 from itertools import cycle
 import argparse
 import joblib
-from sklearn.metrics import roc_curve, auc, confusion_matrix
+from sklearn.metrics import roc_curve, auc, confusion_matrix, plot_confusion_matrix
 from sklearn.model_selection import cross_val_score
 from sklearn.multiclass import OneVsRestClassifier
 from sklearn.preprocessing import label_binarize
 from surprise import KNNWithZScore, KNNWithMeans, KNNBasic, KNNBaseline, BaselineOnly, SVD, NMF, SVDpp
 from surprise.model_selection import cross_validate
 import matplotlib.pyplot as plt
-import numpy as np
 from data.split_train_test import *
 from data.surprise_preprocess import *
 from algorithms.RandomForest import *
@@ -16,6 +15,8 @@ from algorithms.naive_bayes import *
 from algorithms.SVM import *
 from pyfiglet import Figlet
 from numpy import interp
+import pickle
+from tqdm import tqdm
 
 def get_argparser():
     parser = argparse.ArgumentParser()
@@ -70,7 +71,7 @@ def memory_based(model='baseline', similarity='cosine', method='als'):
     elif model == 'knn_with_means':
         algo = KNNWithMeans(sim_options=sim_options)
     elif model == 'knn_with_z_score':
-        algo = KNNWithZScore(sim_options=sim_options)
+        algo = KNNWithZScore(sim_options=sim_options, k = 20)
     else:
         raise Exception(f"Invalid model passed to function {model}")
     return algo
@@ -85,18 +86,11 @@ def fit_model(X, model):
     return model.fit(X_train)
 
 def predict_from_model(model):
-    #TODO: read this https://surprise.readthedocs.io/en/stable/getting_started.html#getting-started and implement prediction function
-    #TODO: pass Rodrigo's partial recipes dataset and calculate errors/accuracies
-    return predictions
+    return model.test()
 
 def model_based(model='svd'):
-    if model == 'svd': # same as Probabilistic Matrix Factorization
-        algo = SVD()
-    elif model == 'svdpp':
-        algo = SVDpp()
-    # throws zero division error if all quantities are zero related to a item_id or store_id
-    elif model == 'nmf':
-        algo = NMF()
+    if model == 'svd':
+        algo = SVD(n_factors = 200)
     else:
         raise Exception(f"Invalid model passed to function {model}")
     return algo
@@ -104,11 +98,14 @@ def model_based(model='svd'):
 def random_forest(X_train, X_val, X_test, y_train, y_val, y_test, importances=False, verbose=0):
     if verbose == True: verbose = 3
     rf = RandomForest(X_train, y_train, X_test, y_test, verbose=verbose)
-    # if importances:
-    #     rf.get_importances()
-    # plot_true_Vs_predicted(y_val, rf.predict(X_val))
-    # plot_roc_curve(X_train, y_train, X_test, y_test, RandomForestClassifier())
-    # compute_confusion_matrix(y_test.values, rf.predict(X_test.values))
+    if importances:
+        rf.get_importances()
+    plot_true_Vs_predicted(y_val, rf.predict(X_val))
+    plot_roc_curve(X_train, y_train, X_test, y_test, RandomForestClassifier())
+    plot_confusion_matrix(rf.clf, X_test, y_test, display_labels=get_cuisines()['cuisine_label'], xticks_rotation=65)
+    plt.title("Results for Random Forest Classifier")
+    plt.tight_layout()
+    plt.show()
     X_final = pd.concat([X_test, X_val])
     y_final = pd.concat([y_test, y_val])
     print(f"Accuracy of validation+test sets together: {accuracy_score(y_final.values, rf.predict(X_final))}")
@@ -116,7 +113,7 @@ def random_forest(X_train, X_val, X_test, y_train, y_val, y_test, importances=Fa
 
 def naive_bayes(X_train, X_val, X_test, y_train, y_val, y_test):
     nb = NaiveBayes(X_train, y_train, X_test, y_test)
-    # plot_true_Vs_predicted(y_val, nb.predict(X_val))
+    plot_true_Vs_predicted(y_val, nb.predict(X_val))
     X_final = pd.concat([X_test, X_val])
     y_final = pd.concat([y_test, y_val])
     print(f"Accuracy of validation+test sets together: {accuracy_score(y_final.values, nb.predict(X_final))}")
@@ -124,8 +121,8 @@ def naive_bayes(X_train, X_val, X_test, y_train, y_val, y_test):
 
 def svm(X_train, X_val, X_test, y_train, y_val, y_test):
     svm = SVM(X_train, y_train, X_test, y_test, verbose=0)
-    # plot_true_Vs_predicted(y_val, svm.predict(X_val))
-    # plot_roc_curve(X_train, y_train, X_test, y_test, SVC())
+    plot_true_Vs_predicted(y_val, svm.predict(X_val))
+    plot_roc_curve(X_train, y_train, X_test, y_test, SVC())
     X_final = pd.concat([X_test, X_val])
     y_final = pd.concat([y_test, y_val])
     print(f"Accuracy of validation+test sets together: {accuracy_score(y_final.values, svm.predict(X_final))}")
@@ -231,13 +228,30 @@ if __name__ == '__main__':
               + f"; Method: {opts.baseline_method}" * (opts.recommendation_model == 'baseline') \
               + f"; Similarity: {opts.similarity}" * (opts.recommendation_model != 'baseline'))
         X_train, X_test = get_data(y_val=False)
-        X_test, mask = X_test, mask = create_testset(X_test, n = 1)
         if opts.recommendation_model in ['baseline', 'knn_basic', 'knn_baseline', 'knn_with_means', 'knn_with_z_score']:
             algo = memory_based(model=opts.recommendation_model, similarity=opts.similarity, method=opts.baseline_method)
             print("about to cross validate")
-            # TODO: do a flag to cross_validate model or not
-            # results = cross_validate_model(algo, X_train)
+            results = cross_validate_model(algo, X_train, measures = ['RMSE', 'MSE', 'MAE'])
             fitted_model = fit_model(X_train, algo)
             predictions = predict_from_model(algo)
+            full_train_data, hidden_rankings, full_test = create_recommendation_set(1)
+            print(hidden_rankings.shape)
+            algo.fit(full_train_data)
+            predictions = []
+            print("Running test predictions")
+            for _, row in tqdm(hidden_rankings.iterrows()):
+                current_uid = row['recipe_id']
+                current_iid = row['ingredient']
+                current_r = row['rating']
+                current_prediction = algo.predict(current_uid, current_iid, current_r)
+                predictions.append(current_prediction)
+            with open('rec_predictions_hidden.pkl', 'wb') as output:
+                pickle.dump(predictions, output, pickle.HIGHEST_PROTOCOL)
+            with open('rec_rankings_hidden.pkl', 'wb') as output:
+                pickle.dump(hidden_rankings, output, pickle.HIGHEST_PROTOCOL)
+            with open('full_test_hidden.pkl', 'wb') as output:
+                pickle.dump(full_test, output, pickle.HIGHEST_PROTOCOL)
+
         if opts.recommendation_model in ['svd', 'svdpp','nmf']:
-            results = model_based(model=opts.recommendation_model)
+            algo = model_based(model=opts.recommendation_model)
+            results = cross_validate_model(algo, X_train, measures = ['RMSE', 'MSE', 'MAE'])

@@ -20,6 +20,9 @@ def get_data(y_val = True):
 def get_labels():
     return pd.read_csv('data/recipes.csv').iloc[:, :-1].columns
 
+def get_cuisines():
+    cuisines = pd.read_csv('data/Cuisines.csv', header=None)
+    return cuisines.rename(columns={1: 'cuisine_label'})
 
 def surprise_transform(data):
     '''Converts a recipes data frame into a surprise dataset'''
