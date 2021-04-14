@@ -13,7 +13,6 @@ Mini Project by
 
 ## Project structure
 ```
-│   KNN_basic.py
 │   LICENSE
 │   main.py
 │   README.md
@@ -39,17 +38,10 @@ Mini Project by
 │       svm.sav
 │       
 ├───notebooks
-│   │   dme data cleaning.ipynb
-│   │   Exploratory_analysis.ipynb
-│   │   PCA_KMeans.ipynb
-│   │   SVM.ipynb
-│   │   
-│   └───.ipynb_checkpoints
-│           Exploratory_analysis-checkpoint.ipynb
-│           
-├───project_management
-│       dme_gantt_chart.xlsx
-│       
+│       dme data cleaning.ipynb
+│       Exploratory_analysis.ipynb
+│       PCA_KMeans.ipynb
+│      
 └───results
         memory_based_models.csv
 ```
