@@ -23,13 +23,3 @@ def get_labels():
 def get_cuisines():
     cuisines = pd.read_csv('data/Cuisines.csv', header=None)
     return cuisines.rename(columns={1: 'cuisine_label'})
-
-def surprise_transform(data):
-    '''Converts a recipes data frame into a surprise dataset'''
-
-    cols = list(data.columns)
-    data['recipe_id'] = data.index
-    surprise_data = pd.melt(data,id_vars = ['recipe_id'], value_vars = cols,
-    var_name = 'ingredient', value_name = 'rating')
-    reader = Reader(rating_scale = (0, 1))
-    return Dataset.load_from_df(surprise_data[['recipe_id', 'ingredient', 'rating']], reader)

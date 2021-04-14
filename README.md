@@ -67,7 +67,10 @@ This project uses a number of open source projects to work properly:
 ### To run the program (Cuisine predictor and ingredient recommendation system)
 1. Run the main file and pass the required arguments _(they are all optional)_
 ``` 
-$ python main.py [--render RENDER] [--verbose VERBOSE] [--task {cuisine,recommendation}] [--cuisine_model {random_forest,naive_bayes,svm}] [--load_or_train {load,train}] [--recommendation_model {baseline,knn_basic,knn_baseline,knn_with_means,knn_with_z_score,svd,svdpp,nmf}] [--baseline_method {als,sgd}] [--similarity {cosine,msd,pearson}] 
+$ python main.py [--render RENDER] [--verbose VERBOSE] [--task {cuisine,recommendation}] 
+                 [--cuisine_model {random_forest,naive_bayes,svm}] [--load_or_train {load,train}] 
+                 [--recommendation_model {baseline,knn_basic,knn_baseline,knn_with_means,knn_with_z_score,svd}] 
+                 [--baseline_method {als,sgd}] [--similarity {cosine,msd,pearson}] 
 ```
 
 Argument options
@@ -80,7 +83,8 @@ optional arguments:
   --cuisine_model {random_forest,naive_bayes,svm} 
                                   model to use on the cuisine prediction
   --load_or_train {load,train}    load a pre-trained model or train one
-  --recommendation_model {baseline,knn_basic,knn_baseline,knn_with_means,knn_with_z_score,svd,svdpp,nmf}                    memory model to use on the recommendation task
+  --recommendation_model {baseline,knn_basic,knn_baseline,knn_with_means,knn_with_z_score,svd}                    
+                                  memory model to use on the recommendation task
   --baseline_method {als,sgd}     method used by the baseline model (recommendation task)
   --similarity {cosine,msd,pearson} similarity metric used by the KNN models (recommendation task)
 ```
