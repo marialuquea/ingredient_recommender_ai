@@ -1,15 +1,15 @@
 # Data Mining and Exploration
 
-Mini Project by 
-- s2122286 - Tiago Lé
-- s1649104 - Maria Luque Anguita
-- s2091900 - Rodrigo Morales Flores
-- s2115429 - Madison Van Horn
-
 ## Features
 
 - Make predictions of the type of a cuisine given a recipe
 - Make ingredients recommendation given a partial recipe
+
+###  Mini Project by 
+- s2122286 - [Tiago Lé](mailto:s2122286@sms.ed.ac.uk)
+- s1649104 - [Maria Luque Anguita](mailto:s1649104@ed.ac.uk)
+- s2091900 - [Rodrigo Morales Flores](mailto:s2091900@ed.ac.uk)
+- s2115429 - [Madison Van Horn](mailto:s2115429@ed.ac.uk)
 
 ## Project structure
 ```
@@ -40,7 +40,7 @@ Mini Project by
 ├───notebooks
 │       dme data cleaning.ipynb
 │       Exploratory_analysis.ipynb
-│       PCA_KMeans.ipynb
+│       PCA.ipynb
 │      
 └───results
         memory_based_models.csv
@@ -58,8 +58,14 @@ This project uses a number of open source projects to work properly:
 1. Download the project locally `$ git clone https://github.com/marialuquea/dme_miniProject.git`
 1. Open a terminal and change directory to the project folder `$ cd dme_miniProject`
 1. Create a new environment with `$ conda create -n dmeMiniProject python=3.8`. If you don't have conda installed, follow the insructions [here](https://github.com/uoe-iaml/iaml-labs/blob/master/README.md) on how to set up an environment.
+1. Activate environment `$ conda activate dmeMiniProject`
 1. Install all required modules `$ pip install -r requirements.txt`
-1. Run the main file and pass the required arguments 
+   
+### To run the notebooks (Exploratory Data Analysis)
+1. `$ pip install jupyter` and then `$ jupyter notebook` and navigate through the folder until you open one of the notebooks in this directory
+
+### To run the program (Cuisine predictor and ingredient recommendation system)
+1. Run the main file and pass the required arguments _(they are all optional)_
 ``` 
 $ python main.py [--render RENDER] [--verbose VERBOSE] [--task {cuisine,recommendation}] [--cuisine_model {random_forest,naive_bayes,svm}] [--load_or_train {load,train}] [--recommendation_model {baseline,knn_basic,knn_baseline,knn_with_means,knn_with_z_score,svd,svdpp,nmf}] [--baseline_method {als,sgd}] [--similarity {cosine,msd,pearson}] 
 ```
