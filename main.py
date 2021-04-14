@@ -85,9 +85,6 @@ def fit_model(X, model):
     X_train = surprise_transform(X)
     return model.fit(X_train)
 
-def predict_from_model(model):
-    return model.test()
-
 def model_based(model='svd'):
     if model == 'svd':
         algo = SVD(n_factors = 200)
@@ -144,13 +141,16 @@ def choose_ML_model(option):
     print(f"Model {model} saved correctly as {filename}!")
     return model
 
-def load_trained_model(opts):
+def load_trained_model(cuisine_model):
     _, X_val, _, _, y_val, _ = get_data()
-    model = joblib.load(f'models/{opts.cuisine_model}.sav')
+    model = joblib.load(f'models/{cuisine_model}.sav')
     return model
 
-def compute_confusion_matrix(y_true, predictions):
-    return confusion_matrix(y_true, predictions, labels=np.unique(y_true))
+def compute_confusion_matrix(model, X_test, y_test, labels=[], title=""):
+    plot_confusion_matrix(model, X_test, y_test, display_labels=labels, xticks_rotation=65)
+    plt.title(title)
+    plt.tight_layout()
+    plt.show()
 
 def plot_true_Vs_predicted(y_true, predictions):
     plt.scatter(y_true, predictions, c='#FF7AA6')
@@ -199,6 +199,7 @@ def plot_roc_curve(X_train, y_train, X_test, y_test, model):
     plt.show()
 
 def evaluate_model(xTrain, yTrain, model, cv=5):
+    print(f"Cross validating model {model}")
     scores = cross_val_score(model, xTrain, yTrain, cv=cv)
     print(f'Cross validation score: {sum(scores)/cv}, Scores: {scores}')
 
@@ -220,7 +221,10 @@ if __name__ == '__main__':
     print(f.renderText(opts.render))
     if opts.task == 'cuisine':
         if opts.load_or_train == 'load':
-            load_trained_model(opts)
+            model = load_trained_model(opts.cuisine_model)
+            X_train, X_val, X_test, y_train, y_val, y_test = get_data()
+            evaluate_model(X_train, y_train, model)
+            compute_confusion_matrix(model, X_test, y_test, get_cuisines()['cuisine_label'], f"Confusion Matrix of {model} for test set")
         else:
             model = choose_ML_model(opts.cuisine_model)
     elif opts.task == 'recommendation':
@@ -230,14 +234,13 @@ if __name__ == '__main__':
         X_train, X_test = get_data(y_val=False)
         if opts.recommendation_model in ['baseline', 'knn_basic', 'knn_baseline', 'knn_with_means', 'knn_with_z_score']:
             algo = memory_based(model=opts.recommendation_model, similarity=opts.similarity, method=opts.baseline_method)
-            print("about to cross validate")
+            print("Cross validating model...")
             results = cross_validate_model(algo, X_train, measures = ['RMSE', 'MSE', 'MAE'])
             fitted_model = fit_model(X_train, algo)
             full_train_data, hidden_rankings, full_test = create_recommendation_set(1)
-            print(hidden_rankings.shape)
             algo.fit(full_train_data)
             predictions = []
-            print("Running test predictions")
+            print("Running test predictions...")
             for _, row in tqdm(hidden_rankings.iterrows()):
                 current_uid = row['recipe_id']
                 current_iid = row['ingredient']
@@ -250,6 +253,7 @@ if __name__ == '__main__':
                 pickle.dump(hidden_rankings, output, pickle.HIGHEST_PROTOCOL)
             with open('full_test_hidden.pkl', 'wb') as output:
                 pickle.dump(full_test, output, pickle.HIGHEST_PROTOCOL)
+            #TODO: print some message saying that predictions are done lol
 
         if opts.recommendation_model in ['svd', 'svdpp','nmf']:
             algo = model_based(model=opts.recommendation_model)
