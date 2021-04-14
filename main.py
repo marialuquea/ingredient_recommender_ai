@@ -233,7 +233,6 @@ if __name__ == '__main__':
             print("about to cross validate")
             results = cross_validate_model(algo, X_train, measures = ['RMSE', 'MSE', 'MAE'])
             fitted_model = fit_model(X_train, algo)
-            predictions = predict_from_model(algo)
             full_train_data, hidden_rankings, full_test = create_recommendation_set(1)
             print(hidden_rankings.shape)
             algo.fit(full_train_data)

@@ -8,7 +8,51 @@ Mini Project by
 
 ## Features
 
-- Define features here
+- Make predictions of the type of a cuisine given a recipe
+- Make ingredients recommendation given a partial recipe
+
+## Project structure
+```
+│   KNN_basic.py
+│   LICENSE
+│   main.py
+│   README.md
+│   requirements.txt
+│   
+├───algorithms
+│       naive_bayes.py
+│       RandomForest.py
+│       SVM.py
+│      
+├───data
+│       cuisine-descriptions.txt
+│       Cuisines.csv
+│       recipes-mallet.txt
+│       recipes.arff
+│       recipes.csv
+│       split_train_test.py
+│       suggestion_testbed.mat
+│      
+├───models
+│       naive_bayes.sav
+│       randomForest.sav
+│       svm.sav
+│       
+├───notebooks
+│   │   dme data cleaning.ipynb
+│   │   Exploratory_analysis.ipynb
+│   │   PCA_KMeans.ipynb
+│   │   SVM.ipynb
+│   │   
+│   └───.ipynb_checkpoints
+│           Exploratory_analysis-checkpoint.ipynb
+│           
+├───project_management
+│       dme_gantt_chart.xlsx
+│       
+└───results
+        memory_based_models.csv
+```
 
 ## Tech
 
