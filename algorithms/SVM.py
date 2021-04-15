@@ -4,7 +4,7 @@ from sklearn.model_selection import GridSearchCV
 
 class SVM:
     def __init__(self, xTrain, yTrain, xTest, yTest, verbose=0):
-        print("\n\nRunning Support Vector Machine classifier...")
+        print("Running Support Vector Machine classifier...")
 
         svm = SVC(kernel='linear', verbose=verbose).fit(xTrain, yTrain)
         self.clf = svm

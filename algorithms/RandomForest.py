@@ -4,7 +4,7 @@ from sklearn.model_selection import GridSearchCV
 
 class RandomForest:
     def __init__(self, xTrain, yTrain, xTest, yTest, verbose=0):
-        print("\n\nRunning Random Forest classifier...")
+        print("Running Random Forest classifier...")
 
         rf = RandomForestClassifier(verbose=verbose).fit(xTrain.values, yTrain.values)
         self.clf = rf
@@ -16,10 +16,11 @@ class RandomForest:
         return self.clf.predict(x)
 
     def get_importances(self):
-        importances = list(self.clf.feature_importances_)
+        importances = list(self.clf.feature_importances_[:5])
         feature_importances = [(feature, round(importance, 2)) for feature, importance in
                                zip(self.feature_list, importances)]
         feature_importances = sorted(feature_importances, key=lambda x: x[1], reverse=True)
+        print("Top 5 most used ingredients to mke predictions:")
         [print('Variable: {:20} Importance: {}'.format(*pair)) for pair in feature_importances]
 
     def grid_search(self, X_train, y_train):

@@ -3,7 +3,7 @@ from sklearn.metrics import accuracy_score
 
 class NaiveBayes:
     def __init__(self, xTrain, yTrain, xTest, yTest):
-        print("\n\nRunning Naive Bayes classifier...")
+        print("Running Naive Bayes classifier...")
 
         nb = CategoricalNB(min_categories=xTrain.shape[1]).fit(xTrain.values, yTrain.values)
         self.clf = nb

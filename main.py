@@ -27,7 +27,7 @@ def get_argparser():
     parser.add_argument("--verbose", type=int, default=0,
                         help="verbosity of the process")
 
-    parser.add_argument("--task", type=str, default='cuisine',
+    parser.add_argument("--task", type=str, default='recommendation',
                         choices=['cuisine', 'recommendation'],
                         help="task to perform")
 
@@ -40,7 +40,7 @@ def get_argparser():
                         help="load a pre-trained model or train one")
 
     parser.add_argument("--recommendation_model", type=str, default='baseline',
-                        choices=['baseline', 'knn_basic', 'knn_baseline', 'knn_with_means', 'knn_with_z_score', 'svd', 'svdpp', 'nmf'],
+                        choices=['baseline', 'knn_basic', 'knn_baseline', 'knn_with_means', 'knn_with_z_score', 'svd'],
                         help="memory model to use on the recommendation task")
 
     parser.add_argument("--baseline_method", type=str, default='als',
@@ -51,7 +51,13 @@ def get_argparser():
                         choices=['cosine', 'msd', 'pearson'],
                         help="similarity metric used by the KNN models (recommendation task)")
 
+    parser.add_argument("--validate_or_test", type=str, default='validate',
+                        choices=['validate', 'test'],
+                        help="Perform cross validation or testing for the recommendation algorithm")
+
     return parser
+
+#--------------------RECOMMENDATION SYSTEM------------------------
 
 def memory_based(model='baseline', similarity='cosine', method='als'):
     sim_options = {'name': similarity, 'user_based': False}
@@ -81,13 +87,6 @@ def cross_validate_model(algo, X, cv=3, measures=['RMSE'], verbose=True):
     print(f"Cross validating algorithm with {cv} folds")
     return cross_validate(algo, X_train, measures=measures, cv=cv, verbose=verbose)
 
-def fit_model(X, model):
-    X_train = surprise_transform(X)
-    return model.fit(X_train)
-
-def predict_from_model(model):
-    return model.test()
-
 def model_based(model='svd'):
     if model == 'svd':
         algo = SVD(n_factors = 200)
@@ -95,37 +94,40 @@ def model_based(model='svd'):
         raise Exception(f"Invalid model passed to function {model}")
     return algo
 
-def random_forest(X_train, X_val, X_test, y_train, y_val, y_test, importances=False, verbose=0):
+#--------------------PREDICTING CUISINE------------------------
+
+def random_forest(X_train, X_val, X_test, y_train, y_val, y_test, verbose=False):
     if verbose == True: verbose = 3
     rf = RandomForest(X_train, y_train, X_test, y_test, verbose=verbose)
-    if importances:
-        rf.get_importances()
-    plot_true_Vs_predicted(y_val, rf.predict(X_val))
-    plot_roc_curve(X_train, y_train, X_test, y_test, RandomForestClassifier())
-    plot_confusion_matrix(rf.clf, X_test, y_test, display_labels=get_cuisines()['cuisine_label'], xticks_rotation=65)
-    plt.title("Results for Random Forest Classifier")
-    plt.tight_layout()
-    plt.show()
+    rf.get_importances()
     X_final = pd.concat([X_test, X_val])
     y_final = pd.concat([y_test, y_val])
     print(f"Accuracy of validation+test sets together: {accuracy_score(y_final.values, rf.predict(X_final))}")
+    print("Plotting graphs... program will stop until plots are closed manually.")
+    plot_true_Vs_predicted(y_val, rf.predict(X_val))
+    plot_roc_curve(X_train, y_train, X_test, y_test, RandomForestClassifier())
+    compute_confusion_matrix(rf.clf, X_test, y_test, labels=get_cuisines()['cuisine_label'], title="Results for Random Forest Classifier")
     return rf.clf
 
 def naive_bayes(X_train, X_val, X_test, y_train, y_val, y_test):
     nb = NaiveBayes(X_train, y_train, X_test, y_test)
-    plot_true_Vs_predicted(y_val, nb.predict(X_val))
     X_final = pd.concat([X_test, X_val])
     y_final = pd.concat([y_test, y_val])
     print(f"Accuracy of validation+test sets together: {accuracy_score(y_final.values, nb.predict(X_final))}")
+    print("Plotting graphs... program will stop until plots are closed manually.")
+    plot_true_Vs_predicted(y_val, nb.predict(X_val))
+    compute_confusion_matrix(nb.clf, X_test, y_test, labels=get_cuisines()['cuisine_label'], title="Results for Naive Bayes Classifier")
     return nb.clf
 
 def svm(X_train, X_val, X_test, y_train, y_val, y_test):
     svm = SVM(X_train, y_train, X_test, y_test, verbose=0)
-    plot_true_Vs_predicted(y_val, svm.predict(X_val))
-    plot_roc_curve(X_train, y_train, X_test, y_test, SVC())
     X_final = pd.concat([X_test, X_val])
     y_final = pd.concat([y_test, y_val])
     print(f"Accuracy of validation+test sets together: {accuracy_score(y_final.values, svm.predict(X_final))}")
+    print("Plotting graphs... program will stop until plots are closed manually.")
+    plot_true_Vs_predicted(y_val, svm.predict(X_val))
+    plot_roc_curve(X_train, y_train, X_test, y_test, SVC())
+    compute_confusion_matrix(svm.clf, X_test, y_test, labels=get_cuisines()['cuisine_label'], title="Results for Naive Bayes Classifier")
     return svm.clf
 
 def choose_ML_model(option):
@@ -135,7 +137,7 @@ def choose_ML_model(option):
     elif option == 'naive_bayes':
         model = naive_bayes(X_train, X_val, X_test, y_train, y_val, y_test)
     elif option == 'svm':
-        model = svm(X_train, X_val, X_test, y_train, y_val, y_test, verbose=opts.verbose)
+        model = svm(X_train, X_val, X_test, y_train, y_val, y_test)
     else:
         print("Invalid input, try again.")
         return
@@ -144,15 +146,20 @@ def choose_ML_model(option):
     print(f"Model {model} saved correctly as {filename}!")
     return model
 
-def load_trained_model(opts):
+def load_trained_model(cuisine_model):
     _, X_val, _, _, y_val, _ = get_data()
-    model = joblib.load(f'models/{opts.cuisine_model}.sav')
+    model = joblib.load(f'models/{cuisine_model}.sav')
     return model
 
-def compute_confusion_matrix(y_true, predictions):
-    return confusion_matrix(y_true, predictions, labels=np.unique(y_true))
+def compute_confusion_matrix(model, X_test, y_test, labels=[], title=""):
+    print("Plotting confusion matrix...")
+    plot_confusion_matrix(model, X_test, y_test, display_labels=labels, xticks_rotation=65)
+    plt.title(title)
+    plt.tight_layout()
+    plt.show()
 
 def plot_true_Vs_predicted(y_true, predictions):
+    print("Plotting true VS predicted values...")
     plt.scatter(y_true, predictions, c='#FF7AA6')
     plt.xlabel('True Values')
     plt.ylabel('Predictions')
@@ -161,6 +168,7 @@ def plot_true_Vs_predicted(y_true, predictions):
     plt.show()
 
 def plot_roc_curve(X_train, y_train, X_test, y_test, model):
+    print("Plotting ROC curve...")
     y = label_binarize(y_train, classes=np.unique(y_train))
     y_test = label_binarize(y_test, classes=np.unique(y_train))
     n_classes = y.shape[1]
@@ -196,9 +204,11 @@ def plot_roc_curve(X_train, y_train, X_test, y_test, model):
     plt.ylabel('True Positive Rate')
     plt.title('Receiver operating characteristic in multi-class RF model')
     plt.legend(bbox_to_anchor=(1, 1), loc="upper left")
+    plt.tight_layout()
     plt.show()
 
 def evaluate_model(xTrain, yTrain, model, cv=5):
+    print(f"Cross validating model {model}")
     scores = cross_val_score(model, xTrain, yTrain, cv=cv)
     print(f'Cross validation score: {sum(scores)/cv}, Scores: {scores}')
 
@@ -220,31 +230,42 @@ if __name__ == '__main__':
     print(f.renderText(opts.render))
     if opts.task == 'cuisine':
         if opts.load_or_train == 'load':
-            load_trained_model(opts)
+            print(f"----Running accuracy metrics on pre-trained model {opts.cuisine_model}----")
+            model = load_trained_model(opts.cuisine_model)
+            X_train, X_val, X_test, y_train, y_val, y_test = get_data()
+            evaluate_model(X_train, y_train, model)
+            compute_confusion_matrix(model, X_test, y_test, get_cuisines()['cuisine_label'], f"Confusion Matrix of {model} for test set")
         else:
+            print(f"----Training model {opts.cuisine_model} and running accuracy metrics on it.----")
             model = choose_ML_model(opts.cuisine_model)
     elif opts.task == 'recommendation':
-        print(f"Task: {opts.task}; Model: {opts.recommendation_model}" \
+        print(f"Running task: {opts.task}; Model: {opts.recommendation_model}" \
               + f"; Method: {opts.baseline_method}" * (opts.recommendation_model == 'baseline') \
               + f"; Similarity: {opts.similarity}" * (opts.recommendation_model != 'baseline'))
-        X_train, X_test = get_data(y_val=False)
         if opts.recommendation_model in ['baseline', 'knn_basic', 'knn_baseline', 'knn_with_means', 'knn_with_z_score']:
             algo = memory_based(model=opts.recommendation_model, similarity=opts.similarity, method=opts.baseline_method)
-            print("about to cross validate")
+        
+        if opts.recommendation_model in ['svd', 'svdpp','nmf']:
+            algo = model_based(model=opts.recommendation_model)
+            
+        if opts.validate_or_test == 'validate':
+            print("Cross validating model...")
+            X_train, X_test = get_data(y_val=False)
             results = cross_validate_model(algo, X_train, measures = ['RMSE', 'MSE', 'MAE'])
-            fitted_model = fit_model(X_train, algo)
-            predictions = predict_from_model(algo)
+        
+        if opts.validate_or_test == 'test':
             full_train_data, hidden_rankings, full_test = create_recommendation_set(1)
-            print(hidden_rankings.shape)
             algo.fit(full_train_data)
             predictions = []
-            print("Running test predictions")
+            print("Running test predictions...")
             for _, row in tqdm(hidden_rankings.iterrows()):
                 current_uid = row['recipe_id']
                 current_iid = row['ingredient']
                 current_r = row['rating']
                 current_prediction = algo.predict(current_uid, current_iid, current_r)
                 predictions.append(current_prediction)
+            print("Finished test predictions")
+            # Save results for analysis
             with open('rec_predictions_hidden.pkl', 'wb') as output:
                 pickle.dump(predictions, output, pickle.HIGHEST_PROTOCOL)
             with open('rec_rankings_hidden.pkl', 'wb') as output:
@@ -252,6 +273,4 @@ if __name__ == '__main__':
             with open('full_test_hidden.pkl', 'wb') as output:
                 pickle.dump(full_test, output, pickle.HIGHEST_PROTOCOL)
 
-        if opts.recommendation_model in ['svd', 'svdpp','nmf']:
-            algo = model_based(model=opts.recommendation_model)
-            results = cross_validate_model(algo, X_train, measures = ['RMSE', 'MSE', 'MAE'])
+        
