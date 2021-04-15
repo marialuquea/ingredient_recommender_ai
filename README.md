@@ -13,37 +13,41 @@
 
 ## Project structure
 ```
-│   LICENSE
-│   main.py
-│   README.md
-│   requirements.txt
-│   
-├───algorithms
-│       naive_bayes.py
-│       RandomForest.py
-│       SVM.py
-│      
-├───data
-│       cuisine-descriptions.txt
-│       Cuisines.csv
-│       recipes-mallet.txt
-│       recipes.arff
-│       recipes.csv
-│       split_train_test.py
-│       suggestion_testbed.mat
-│      
-├───models
-│       naive_bayes.sav
-│       randomForest.sav
-│       svm.sav
-│       
-├───notebooks
-│       dme data cleaning.ipynb
-│       Exploratory_analysis.ipynb
-│       PCA.ipynb
-│      
-└───results
+|   LICENSE
+|   main.py
+|   README.md
+|   requirements.txt
+|   
++---algorithms
+|       naive_bayes.py
+|       RandomForest.py
+|       SVM.py
+|   
++---data
+|       Cuisines.csv
+|       recipes.csv
+|       split_train_test.py
+|       surprise_preprocess.py
+|       
++---models
+|       naive_bayes.sav
+|       randomForest.sav
+|       svm.sav
+|       
++---notebooks
+|       dme data cleaning.ipynb
+|       Exploratory_analysis.ipynb
+|       PCA.ipynb
+|       pca.png
+|       
+\---results
+        full_test_hidden1.pkl
+        hidden_rankings_hidden1.pkl
         memory_based_models.csv
+        recommendation_test.ipynb
+        rec_predictions_hidden1.pkl
+        rec_rankings_hidden1.pkl
+        test_predictions_hidden1.pkl
 ```
 
 ## Tech
@@ -70,7 +74,8 @@ This project uses a number of open source projects to work properly:
 $ python main.py [--render RENDER] [--verbose VERBOSE] [--task {cuisine,recommendation}] 
                  [--cuisine_model {random_forest,naive_bayes,svm}] [--load_or_train {load,train}] 
                  [--recommendation_model {baseline,knn_basic,knn_baseline,knn_with_means,knn_with_z_score,svd}] 
-                 [--baseline_method {als,sgd}] [--similarity {cosine,msd,pearson}] [--validate_or_test {validate, test}]
+                 [--baseline_method {als,sgd}] [--similarity {cosine,msd,pearson}] 
+                 [--validate_or_test {validate, test}]
 ```
 
 Argument options
