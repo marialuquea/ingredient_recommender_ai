@@ -51,6 +51,10 @@ def get_argparser():
                         choices=['cosine', 'msd', 'pearson'],
                         help="similarity metric used by the KNN models (recommendation task)")
 
+    parser.add_argument("--validate_or_test", type=str, default='validate',
+                        choices=['validate', 'test'],
+                        help="Perform cross validation or testing for the recommendation algorithm")
+
     return parser
 
 #--------------------RECOMMENDATION SYSTEM------------------------
@@ -82,11 +86,6 @@ def cross_validate_model(algo, X, cv=3, measures=['RMSE'], verbose=True):
     X_train = surprise_transform(X)
     print(f"Cross validating algorithm with {cv} folds")
     return cross_validate(algo, X_train, measures=measures, cv=cv, verbose=verbose)
-
-def fit_model(X, model):
-    print(X.shape)
-    X_train = surprise_transform(X)
-    return model.fit(X_train)
 
 def model_based(model='svd'):
     if model == 'svd':
@@ -243,12 +242,18 @@ if __name__ == '__main__':
         print(f"Running task: {opts.task}; Model: {opts.recommendation_model}" \
               + f"; Method: {opts.baseline_method}" * (opts.recommendation_model == 'baseline') \
               + f"; Similarity: {opts.similarity}" * (opts.recommendation_model != 'baseline'))
-        X_train, X_test = get_data(y_val=False)
         if opts.recommendation_model in ['baseline', 'knn_basic', 'knn_baseline', 'knn_with_means', 'knn_with_z_score']:
             algo = memory_based(model=opts.recommendation_model, similarity=opts.similarity, method=opts.baseline_method)
+        
+        if opts.recommendation_model in ['svd', 'svdpp','nmf']:
+            algo = model_based(model=opts.recommendation_model)
+            
+        if opts.validate_or_test == 'validate':
             print("Cross validating model...")
+            X_train, X_test = get_data(y_val=False)
             results = cross_validate_model(algo, X_train, measures = ['RMSE', 'MSE', 'MAE'])
-            fitted_model = fit_model(X_train, algo)
+        
+        if opts.validate_or_test == 'test':
             full_train_data, hidden_rankings, full_test = create_recommendation_set(1)
             algo.fit(full_train_data)
             predictions = []
@@ -259,14 +264,13 @@ if __name__ == '__main__':
                 current_r = row['rating']
                 current_prediction = algo.predict(current_uid, current_iid, current_r)
                 predictions.append(current_prediction)
+            print("Finished test predictions")
+            # Save results for analysis
             with open('rec_predictions_hidden.pkl', 'wb') as output:
                 pickle.dump(predictions, output, pickle.HIGHEST_PROTOCOL)
             with open('rec_rankings_hidden.pkl', 'wb') as output:
                 pickle.dump(hidden_rankings, output, pickle.HIGHEST_PROTOCOL)
             with open('full_test_hidden.pkl', 'wb') as output:
                 pickle.dump(full_test, output, pickle.HIGHEST_PROTOCOL)
-            #TODO: print some message saying that predictions are done lol
 
-        if opts.recommendation_model in ['svd', 'svdpp','nmf']:
-            algo = model_based(model=opts.recommendation_model)
-            results = cross_validate_model(algo, X_train, measures = ['RMSE', 'MSE', 'MAE'])
+        
