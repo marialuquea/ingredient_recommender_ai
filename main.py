@@ -87,11 +87,6 @@ def cross_validate_model(algo, X, cv=3, measures=['RMSE'], verbose=True):
     print(f"Cross validating algorithm with {cv} folds")
     return cross_validate(algo, X_train, measures=measures, cv=cv, verbose=verbose)
 
-def fit_model(X, model):
-    print(X.shape)
-    X_train = surprise_transform(X)
-    return model.fit(X_train)
-
 def model_based(model='svd'):
     if model == 'svd':
         algo = SVD(n_factors = 200)
@@ -247,20 +242,18 @@ if __name__ == '__main__':
         print(f"Running task: {opts.task}; Model: {opts.recommendation_model}" \
               + f"; Method: {opts.baseline_method}" * (opts.recommendation_model == 'baseline') \
               + f"; Similarity: {opts.similarity}" * (opts.recommendation_model != 'baseline'))
-        X_train, X_test = get_data(y_val=False)
         if opts.recommendation_model in ['baseline', 'knn_basic', 'knn_baseline', 'knn_with_means', 'knn_with_z_score']:
             algo = memory_based(model=opts.recommendation_model, similarity=opts.similarity, method=opts.baseline_method)
         
         if opts.recommendation_model in ['svd', 'svdpp','nmf']:
             algo = model_based(model=opts.recommendation_model)
-            results = cross_validate_model(algo, X_train, measures = ['RMSE', 'MSE', 'MAE'])
             
         if opts.validate_or_test == 'validate':
             print("Cross validating model...")
+            X_train, X_test = get_data(y_val=False)
             results = cross_validate_model(algo, X_train, measures = ['RMSE', 'MSE', 'MAE'])
         
         if opts.validate_or_test == 'test':
-            fitted_model = fit_model(X_train, algo)
             full_train_data, hidden_rankings, full_test = create_recommendation_set(1)
             algo.fit(full_train_data)
             predictions = []
