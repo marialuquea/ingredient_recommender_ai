@@ -70,7 +70,7 @@ This project uses a number of open source projects to work properly:
 $ python main.py [--render RENDER] [--verbose VERBOSE] [--task {cuisine,recommendation}] 
                  [--cuisine_model {random_forest,naive_bayes,svm}] [--load_or_train {load,train}] 
                  [--recommendation_model {baseline,knn_basic,knn_baseline,knn_with_means,knn_with_z_score,svd}] 
-                 [--baseline_method {als,sgd}] [--similarity {cosine,msd,pearson}] 
+                 [--baseline_method {als,sgd}] [--similarity {cosine,msd,pearson}] [--validate_or_test {validate, test}]
 ```
 
 Argument options
@@ -87,6 +87,7 @@ optional arguments:
                                   memory model to use on the recommendation task
   --baseline_method {als,sgd}     method used by the baseline model (recommendation task)
   --similarity {cosine,msd,pearson} similarity metric used by the KNN models (recommendation task)
+  --validate_or_test {validate, test} whether to do cross-validation or testing with the recommendation algorithm
 ```
 
 ## License
