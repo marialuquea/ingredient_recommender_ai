@@ -51,6 +51,10 @@ def get_argparser():
                         choices=['cosine', 'msd', 'pearson'],
                         help="similarity metric used by the KNN models (recommendation task)")
 
+    parser.add_argument("--validate_or_test", type=str, default='validate',
+                        choices=['validate', 'test'],
+                        help="Perform cross validation or testing for the recommendation algorithm")
+
     return parser
 
 #--------------------RECOMMENDATION SYSTEM------------------------
@@ -246,8 +250,16 @@ if __name__ == '__main__':
         X_train, X_test = get_data(y_val=False)
         if opts.recommendation_model in ['baseline', 'knn_basic', 'knn_baseline', 'knn_with_means', 'knn_with_z_score']:
             algo = memory_based(model=opts.recommendation_model, similarity=opts.similarity, method=opts.baseline_method)
+        
+        if opts.recommendation_model in ['svd', 'svdpp','nmf']:
+            algo = model_based(model=opts.recommendation_model)
+            results = cross_validate_model(algo, X_train, measures = ['RMSE', 'MSE', 'MAE'])
+            
+        if opts.validate_or_test == 'validate':
             print("Cross validating model...")
             results = cross_validate_model(algo, X_train, measures = ['RMSE', 'MSE', 'MAE'])
+        
+        if opts.validate_or_test == 'test':
             fitted_model = fit_model(X_train, algo)
             full_train_data, hidden_rankings, full_test = create_recommendation_set(1)
             algo.fit(full_train_data)
@@ -259,14 +271,13 @@ if __name__ == '__main__':
                 current_r = row['rating']
                 current_prediction = algo.predict(current_uid, current_iid, current_r)
                 predictions.append(current_prediction)
+            print("Finished test predictions")
+            # Save results for analysis
             with open('rec_predictions_hidden.pkl', 'wb') as output:
                 pickle.dump(predictions, output, pickle.HIGHEST_PROTOCOL)
             with open('rec_rankings_hidden.pkl', 'wb') as output:
                 pickle.dump(hidden_rankings, output, pickle.HIGHEST_PROTOCOL)
             with open('full_test_hidden.pkl', 'wb') as output:
                 pickle.dump(full_test, output, pickle.HIGHEST_PROTOCOL)
-            #TODO: print some message saying that predictions are done lol
 
-        if opts.recommendation_model in ['svd', 'svdpp','nmf']:
-            algo = model_based(model=opts.recommendation_model)
-            results = cross_validate_model(algo, X_train, measures = ['RMSE', 'MSE', 'MAE'])
+        
